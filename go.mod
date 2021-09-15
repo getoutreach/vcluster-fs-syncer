@@ -8,6 +8,7 @@ require (
 	github.com/getoutreach/gobox v1.13.0
 	github.com/getoutreach/httpx v1.4.0
 	github.com/google/uuid v1.2.0
+	github.com/kr/fs v0.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.8.1
 	go.uber.org/automaxprocs v1.4.0

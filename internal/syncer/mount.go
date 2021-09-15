@@ -27,7 +27,7 @@ func bindMount(from, to string) error {
 	}
 
 	if err := os.Mkdir(to, fromSt.Mode()); os.IsExist(err) {
-		err = syscall.Unmount(absFrom, syscall.MNT_DETACH|UmountNoFollow)
+		err = unmountBind(from)
 		if err != nil {
 			// TODO: better way to handle this?
 			logrus.WithError(err).Warn("failed to unmount dir for remount")
@@ -45,4 +45,13 @@ func bindMount(from, to string) error {
 	}
 
 	return nil
+}
+
+func unmountBind(dir string) error {
+	absDir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return fmt.Errorf("Could not resolve symlink for dir %v", dir)
+	}
+
+	return syscall.Unmount(absDir, syscall.MNT_DETACH|UmountNoFollow)
 }

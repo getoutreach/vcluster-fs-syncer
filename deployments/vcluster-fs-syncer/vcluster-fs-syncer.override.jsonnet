@@ -29,6 +29,10 @@ local objects = {
             default+: {
               securityContext: {
                 privileged: true,
+                capabilities: {
+                  add: ["SYS_ADMIN"]
+                },
+                allowPrivilegeEscalation: true
               },
               volumeMounts_+:: {
                 'var-lib': {

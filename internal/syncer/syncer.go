@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -87,11 +86,6 @@ func (s *Syncer) onAdded(file string) error {
 		return fmt.Errorf("pod wasn't found in cache")
 	}
 
-	// only process pods in a vcluster
-	if !strings.HasPrefix(po.Namespace, "vcluster-") {
-		return fmt.Errorf("pod wasn't in a vcluster")
-	}
-
 	s.log.WithField("pod.key", s.getPodKey(po)).Info("found new pod directory")
 
 	s.log.
@@ -139,7 +133,35 @@ func (s *Syncer) getPodKey(inf interface{}) string {
 }
 
 func (s *Syncer) onRemoved(file string) error {
-	return nil
+	id, err := uuid.Parse(filepath.Base(file))
+	if err != nil {
+		return errors.Wrap(err, "unlikely to be pod, name wasn't a UUID")
+	}
+
+	if inf, err := os.Stat(filepath.Join(s.fromPath, file)); err != nil || !inf.IsDir() {
+		return fmt.Errorf("failed to read pod dir, or isn't a directory")
+	}
+
+	po, ok := s.podCache[id.String()]
+	if !ok {
+		return fmt.Errorf("pod wasn't found in cache")
+	}
+
+	s.log.WithField("pod.key", s.getPodKey(po)).
+		WithField("pod.uid", po.UID).
+		Info("found deleted pod")
+
+	s.log.WithField("pod.key", s.getPodKey(po.VCPodInfo)).
+		WithField("pod.uid", po.VCPodInfo.UID).
+		WithField("vcluster.name", po.VCPodInfo.ClusterName).
+		Info("retrieved vcluster pod information")
+
+	toPath := filepath.Join(s.toPath, po.VCPodInfo.ClusterName,
+		"kubelet", "pods", po.VCPodInfo.UID)
+
+	s.log.WithField("pod.path", toPath).
+		Info("unmounting vcluster pod")
+	return unmountBind(toPath)
 }
 
 func (s *Syncer) getVClusterPod(po *corev1.Pod) (*vclusterPod, error) {
@@ -256,11 +278,14 @@ func (s *Syncer) Start(ctx context.Context) error { //nolint:funlen
 
 	s.startInformer(ctx)
 
-	// TODO: need to close this now that it isn't blocking
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return errors.Wrap(err, "failed to create watcher")
 	}
+	defer func() {
+		s.log.Warn("filesystem watcher stopped")
+		w.Close() //nolint:errcheck // Why: best effort
+	}()
 
 	// TODO: queue these, with a retry
 	go func() {
@@ -308,5 +333,32 @@ func (s *Syncer) Start(ctx context.Context) error { //nolint:funlen
 
 	s.log.WithField("file.path", s.fromPath).Info("started filesystem watcher")
 
+	<-ctx.Done()
+
 	return nil
+}
+
+func (s *Syncer) Close() error {
+	s.log.Info("shutting down syncer")
+	return filepath.Walk(s.toPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		_, err = uuid.Parse(filepath.Base(path))
+		if err != nil {
+			// skip files that aren't UUID
+			return nil
+		}
+
+		bindPath := filepath.Join(s.toPath, path)
+		s.log.WithField("pod.path", s.toPath).Info("cleaning up mount")
+
+		err = unmountBind(bindPath)
+		if err != nil {
+			s.log.WithError(err).WithField("pod.path", s.toPath).Warn("failed to remove bind mount")
+		}
+
+		return nil
+	})
 }
