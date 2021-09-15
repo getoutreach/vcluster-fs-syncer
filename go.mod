@@ -3,7 +3,7 @@ module github.com/getoutreach/vcluster-fs-syncer
 go 1.14
 
 require (
-	github.com/fsnotify/fsnotify v1.4.9
+	github.com/fsnotify/fsnotify v1.5.1
 	github.com/getoutreach/devenv v1.13.0
 	github.com/getoutreach/gobox v1.13.0
 	github.com/getoutreach/httpx v1.4.0
