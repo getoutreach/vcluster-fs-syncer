@@ -84,6 +84,7 @@ func main() { //nolint: funlen
 
 	// Place any code for your service to run before registering service activities in this block
 	///Block(initialization)
+	sync := &vcluster_fs_syncer.SyncerService{}
 	///EndBlock(initialization)
 
 	acts := []serviceActivity{
@@ -91,7 +92,7 @@ func main() { //nolint: funlen
 		&vcluster_fs_syncer.HTTPService{},
 		// Place any additional ServiceActivities that your service has built here to have them handled automatically
 		///Block(services)
-		&vcluster_fs_syncer.SyncerService{},
+		sync,
 		///EndBlock(services)
 	}
 
@@ -113,6 +114,13 @@ func main() { //nolint: funlen
 		})
 	}
 	if err := g.Wait(); err != nil {
-		log.Info(ctx, "Closing down service due to", events.NewErrorInfo(err))
+		// This is stop gap for now to ensure we actually stop the syncer
+		// long term need to see why Close() isn't being called properly above.
+		log.Info(ctx, "stopping syncer")
+		if err := sync.Close(ctx); err != nil {
+			log.Warn(ctx, "failed to stop syncer")
+		}
+
+		log.Info(ctx, "stopping service", events.NewErrorInfo(err))
 	}
 }
