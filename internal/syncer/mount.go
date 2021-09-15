@@ -48,5 +48,10 @@ func bindMount(from, to string) error {
 }
 
 func unmountBind(dir string) error {
-	return syscall.Unmount(dir, syscall.MNT_DETACH|UmountNoFollow)
+	err := syscall.Unmount(dir, syscall.MNT_DETACH|UmountNoFollow)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unmount %s", dir)
+	}
+
+	return os.Remove(dir)
 }
