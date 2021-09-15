@@ -5,9 +5,11 @@ package syncer
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,9 +29,17 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
-type lightPod struct {
-	Name      string
-	Namespace string
+type vclusterPod struct {
+	corev1.Pod
+
+	VCPodInfo *vclusterPodInfo
+}
+
+type vclusterPodInfo struct {
+	ClusterName string
+	Name        string
+	Namespace   string
+	UID         string
 }
 
 type Syncer struct {
@@ -40,7 +50,7 @@ type Syncer struct {
 	k     kubernetes.Interface
 	rconf *rest.Config
 
-	podCache   map[string]lightPod
+	podCache   map[string]vclusterPod
 	podCacheMu sync.RWMutex
 }
 
@@ -58,7 +68,7 @@ func NewSyncer(from, to string, log logrus.FieldLogger) *Syncer {
 		log:      log,
 		k:        k,
 		rconf:    conf,
-		podCache: make(map[string]lightPod),
+		podCache: make(map[string]vclusterPod),
 	}
 }
 
@@ -68,24 +78,59 @@ func (s *Syncer) onAdded(file string) error {
 		return errors.Wrap(err, "unlikely to be pod, name wasn't a UUID")
 	}
 
+	if inf, err := os.Stat(filepath.Join(s.fromPath, file)); err != nil || !inf.IsDir() {
+		return fmt.Errorf("failed to read pod dir, or isn't a directory")
+	}
+
 	po, ok := s.podCache[id.String()]
 	if !ok {
 		return fmt.Errorf("pod wasn't found in cache")
 	}
 
+	// only process pods in a vcluster
+	if !strings.HasPrefix(po.Namespace, "vcluster-") {
+		return fmt.Errorf("pod wasn't in a vcluster")
+	}
+
 	s.log.WithField("pod.key", s.getPodKey(po)).Info("found new pod directory")
 
-	return nil
+	s.log.
+		WithField("pod.key", s.getPodKey(po.VCPodInfo)).
+		WithField("pod.uid", po.VCPodInfo.UID).
+		WithField("vcluster.name", po.VCPodInfo.ClusterName).
+		Info("retrieved vcluster pod information")
+
+	fromPath := filepath.Join(s.fromPath, file)
+	toPath := filepath.Join(s.toPath, po.VCPodInfo.ClusterName,
+		"kubelet", "pods", po.VCPodInfo.UID)
+
+	//nolint:errcheck // Why: Will fix tomorrow
+	os.MkdirAll(filepath.Dir(toPath), 0755)
+
+	s.log.WithField("from", fromPath).WithField("to", toPath).
+		Info("mounting vcluster pod")
+	return bindMount(fromPath, toPath)
 }
 
 func (s *Syncer) getPodKey(inf interface{}) string {
 	name := ""
 	namespace := ""
+
+	infValue := reflect.ValueOf(inf)
+	if infValue.Kind() == reflect.Ptr {
+		if !infValue.IsNil() {
+			inf = infValue.Elem().Interface()
+		}
+	}
+
 	switch po := inf.(type) {
-	case *corev1.Pod:
+	case corev1.Pod:
 		name = po.Name
 		namespace = po.Namespace
-	case lightPod:
+	case vclusterPod:
+		name = po.Name
+		namespace = po.Namespace
+	case vclusterPodInfo:
 		name = po.Name
 		namespace = po.Namespace
 	}
@@ -97,8 +142,37 @@ func (s *Syncer) onRemoved(file string) error {
 	return nil
 }
 
+func (s *Syncer) getVClusterPod(po *corev1.Pod) (*vclusterPod, error) {
+	vcPodName, ok := po.ObjectMeta.Annotations["vcluster.loft.sh/name"]
+	if !ok {
+		return nil, fmt.Errorf("missing name")
+	}
+
+	vcPodNamespace, ok := po.ObjectMeta.Annotations["vcluster.loft.sh/namespace"]
+	if !ok {
+		return nil, fmt.Errorf("missing namespace")
+	}
+
+	uid, ok := po.ObjectMeta.Annotations["vcluster.loft.sh/uid"]
+	if !ok {
+		return nil, fmt.Errorf("missing uid")
+	}
+
+	vcName, ok := po.ObjectMeta.Labels["vcluster.loft.sh/managed-by"]
+	if !ok {
+		return nil, fmt.Errorf("missing managed-by")
+	}
+
+	return &vclusterPod{*po, &vclusterPodInfo{
+		ClusterName: vcName,
+		Name:        vcPodName,
+		Namespace:   vcPodNamespace,
+		UID:         uid,
+	}}, nil
+}
+
 // startInformer starts an informer that updates a pod uid -> key cache
-func (s *Syncer) startInformer(ctx context.Context) {
+func (s *Syncer) startInformer(ctx context.Context) error {
 	// TODO: if this gets real, use a worker queue here
 	inf := informers.NewSharedInformerFactoryWithOptions(s.k, 5*time.Minute).
 		Core().V1().Pods().Informer()
@@ -112,13 +186,19 @@ func (s *Syncer) startInformer(ctx context.Context) {
 
 			s.log.WithField("pod.uid", po.ObjectMeta.UID).
 				WithField("pod.key", s.getPodKey(po)).
-				Info("observed pod creation")
+				Debug("observed pod creation")
+
+			vpo, err := s.getVClusterPod(po)
+			if err != nil {
+				return
+			}
+
+			s.log.WithField("pod.uid", po.ObjectMeta.UID).
+				WithField("pod.key", s.getPodKey(vpo)).
+				Info("observed vcluster pod creation")
 
 			s.podCacheMu.Lock()
-			s.podCache[string(po.ObjectMeta.UID)] = lightPod{
-				Name:      po.Name,
-				Namespace: po.Namespace,
-			}
+			s.podCache[string(po.ObjectMeta.UID)] = *vpo
 			s.podCacheMu.Unlock()
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -130,7 +210,16 @@ func (s *Syncer) startInformer(ctx context.Context) {
 
 			s.log.WithField("pod.uid", po.ObjectMeta.UID).
 				WithField("pod.key", s.getPodKey(po)).
-				Info("observed pod deletion")
+				Debug("observed pod deletion")
+
+			vpo, err := s.getVClusterPod(po)
+			if err != nil {
+				return
+			}
+
+			s.log.WithField("pod.uid", po.ObjectMeta.UID).
+				WithField("pod.key", s.getPodKey(vpo)).
+				Info("observed vcluster pod deletion")
 
 			s.podCacheMu.Lock()
 			delete(s.podCache, string(po.ObjectMeta.UID))
@@ -141,7 +230,14 @@ func (s *Syncer) startInformer(ctx context.Context) {
 	// start the informer
 	go inf.Run(ctx.Done())
 
+	cctx, cancel := context.WithTimeout(ctx, time.Minute*5)
+	defer cancel()
+	if !cache.WaitForCacheSync(cctx.Done(), inf.HasSynced) {
+		return fmt.Errorf("failed to sync cache")
+	}
+
 	s.log.Info("started informer")
+	return nil
 }
 
 // Start starts the syncer.
@@ -160,11 +256,11 @@ func (s *Syncer) Start(ctx context.Context) error { //nolint:funlen
 
 	s.startInformer(ctx)
 
+	// TODO: need to close this now that it isn't blocking
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return errors.Wrap(err, "failed to create watcher")
 	}
-	defer w.Close()
 
 	// TODO: queue these, with a retry
 	go func() {
@@ -183,13 +279,27 @@ func (s *Syncer) Start(ctx context.Context) error { //nolint:funlen
 					err = s.onRemoved(event.Name)
 				}
 				if err != nil {
-					s.log.WithError(err).Warn("failed to process file change event")
+					s.log.WithError(err).WithField("file.name", event.Name).
+						Warn("failed to process file change event")
 				}
 			case err := <-w.Errors: //nolint:govet // Why: We're OK shadowing err
 				s.log.WithError(err).Warn("failed to watch file change")
 			}
 		}
 	}()
+
+	dirs, err := ioutil.ReadDir(s.fromPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to read initial pods")
+	}
+
+	for _, fileName := range dirs {
+		err := s.onAdded(fileName.Name()) //nolint:govet // Why: we're OK shadowing err
+		if err != nil {
+			s.log.WithError(err).WithField("file.name", fileName.Name()).
+				Warn("failed to process initial pod")
+		}
+	}
 
 	err = w.Add(s.fromPath)
 	if err != nil {
