@@ -351,10 +351,9 @@ func (s *Syncer) Close() error {
 			return nil
 		}
 
-		bindPath := filepath.Join(s.toPath, path)
-		s.log.WithField("pod.path", s.toPath).Info("cleaning up mount")
+		s.log.WithField("pod.path", path).Info("cleaning up mount")
 
-		err = unmountBind(bindPath)
+		err = unmountBind(path)
 		if err != nil {
 			s.log.WithError(err).WithField("pod.path", s.toPath).Warn("failed to remove bind mount")
 		}

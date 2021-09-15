@@ -114,13 +114,6 @@ func main() { //nolint: funlen
 		})
 	}
 	if err := g.Wait(); err != nil {
-		// This is stop gap for now to ensure we actually stop the syncer
-		// long term need to see why Close() isn't being called properly above.
-		log.Info(ctx, "stopping syncer")
-		if err := sync.Close(ctx); err != nil {
-			log.Warn(ctx, "failed to stop syncer")
-		}
-
 		log.Info(ctx, "stopping service", events.NewErrorInfo(err))
 	}
 }
