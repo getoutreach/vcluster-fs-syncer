@@ -48,10 +48,5 @@ func bindMount(from, to string) error {
 }
 
 func unmountBind(dir string) error {
-	absDir, err := filepath.EvalSymlinks(dir)
-	if err != nil {
-		return fmt.Errorf("Could not resolve symlink for dir %v", dir)
-	}
-
-	return syscall.Unmount(absDir, syscall.MNT_DETACH|UmountNoFollow)
+	return syscall.Unmount(dir, syscall.MNT_DETACH|UmountNoFollow)
 }

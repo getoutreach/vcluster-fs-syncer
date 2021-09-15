@@ -39,6 +39,9 @@ type vclusterPodInfo struct {
 	Name        string
 	Namespace   string
 	UID         string
+
+	Deleted   bool
+	ExpiresAt time.Time
 }
 
 type Syncer struct {
@@ -77,11 +80,13 @@ func (s *Syncer) onAdded(file string) error {
 		return errors.Wrap(err, "unlikely to be pod, name wasn't a UUID")
 	}
 
-	if inf, err := os.Stat(filepath.Join(s.fromPath, file)); err != nil || !inf.IsDir() {
+	if inf, err := os.Stat(file); err != nil || !inf.IsDir() {
 		return fmt.Errorf("failed to read pod dir, or isn't a directory")
 	}
 
+	s.podCacheMu.RLock()
 	po, ok := s.podCache[id.String()]
+	s.podCacheMu.RUnlock()
 	if !ok {
 		return fmt.Errorf("pod wasn't found in cache")
 	}
@@ -94,16 +99,15 @@ func (s *Syncer) onAdded(file string) error {
 		WithField("vcluster.name", po.VCPodInfo.ClusterName).
 		Info("retrieved vcluster pod information")
 
-	fromPath := filepath.Join(s.fromPath, file)
 	toPath := filepath.Join(s.toPath, po.VCPodInfo.ClusterName,
 		"kubelet", "pods", po.VCPodInfo.UID)
 
 	//nolint:errcheck // Why: Will fix tomorrow
 	os.MkdirAll(filepath.Dir(toPath), 0755)
 
-	s.log.WithField("from", fromPath).WithField("to", toPath).
+	s.log.WithField("from", file).WithField("to", toPath).
 		Info("mounting vcluster pod")
-	return bindMount(fromPath, toPath)
+	return bindMount(file, toPath)
 }
 
 func (s *Syncer) getPodKey(inf interface{}) string {
@@ -138,11 +142,9 @@ func (s *Syncer) onRemoved(file string) error {
 		return errors.Wrap(err, "unlikely to be pod, name wasn't a UUID")
 	}
 
-	if inf, err := os.Stat(filepath.Join(s.fromPath, file)); err != nil || !inf.IsDir() {
-		return fmt.Errorf("failed to read pod dir, or isn't a directory")
-	}
-
+	s.podCacheMu.RLock()
 	po, ok := s.podCache[id.String()]
+	s.podCacheMu.RUnlock()
 	if !ok {
 		return fmt.Errorf("pod wasn't found in cache")
 	}
@@ -200,6 +202,9 @@ func (s *Syncer) startInformer(ctx context.Context) error {
 		Core().V1().Pods().Informer()
 	inf.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
+			s.podCacheMu.Lock()
+			defer s.podCacheMu.Unlock()
+
 			po, ok := obj.(*corev1.Pod)
 			if !ok {
 				s.log.WithField("event.type", reflect.TypeOf(po).String()).Warn("skipping event")
@@ -219,11 +224,12 @@ func (s *Syncer) startInformer(ctx context.Context) error {
 				WithField("pod.key", s.getPodKey(vpo)).
 				Info("observed vcluster pod creation")
 
-			s.podCacheMu.Lock()
 			s.podCache[string(po.ObjectMeta.UID)] = *vpo
-			s.podCacheMu.Unlock()
 		},
 		DeleteFunc: func(obj interface{}) {
+			s.podCacheMu.Lock()
+			defer s.podCacheMu.Unlock()
+
 			po, ok := obj.(*corev1.Pod)
 			if !ok {
 				s.log.WithField("event.type", reflect.TypeOf(po).String()).Warn("skipping event")
@@ -243,9 +249,9 @@ func (s *Syncer) startInformer(ctx context.Context) error {
 				WithField("pod.key", s.getPodKey(vpo)).
 				Info("observed vcluster pod deletion")
 
-			s.podCacheMu.Lock()
-			delete(s.podCache, string(po.ObjectMeta.UID))
-			s.podCacheMu.Unlock()
+			// TODO(jaredallard): need to expire these so we don't consume all the RAM
+			s.podCache[string(po.ObjectMeta.UID)].VCPodInfo.Deleted = true
+			s.podCache[string(po.ObjectMeta.UID)].VCPodInfo.ExpiresAt = time.Now().Add(5 * time.Minute)
 		},
 	})
 
@@ -304,7 +310,7 @@ func (s *Syncer) Start(ctx context.Context) error { //nolint:funlen
 					err = s.onRemoved(event.Name)
 				}
 				if err != nil {
-					s.log.WithError(err).WithField("file.name", event.Name).
+					s.log.WithError(err).WithField("file.name", event.Name).WithField("event.Type", event.Op.String()).
 						Warn("failed to process file change event")
 				}
 			case err := <-w.Errors: //nolint:govet // Why: We're OK shadowing err
@@ -319,7 +325,7 @@ func (s *Syncer) Start(ctx context.Context) error { //nolint:funlen
 	}
 
 	for _, fileName := range dirs {
-		err := s.onAdded(fileName.Name()) //nolint:govet // Why: we're OK shadowing err
+		err := s.onAdded(filepath.Join(s.fromPath, fileName.Name())) //nolint:govet // Why: we're OK shadowing err
 		if err != nil {
 			s.log.WithError(err).WithField("file.name", fileName.Name()).
 				Warn("failed to process initial pod")
