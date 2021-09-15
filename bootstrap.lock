@@ -1,0 +1,4 @@
+# Note: This is not bootstrapped because it's a daemonset and because
+# it would release Outreach IP.
+versions:
+  devbase: v1.21.2

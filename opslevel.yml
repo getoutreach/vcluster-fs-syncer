@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://www.opslevel.com/opslevel.schema.yml
+version: 1
+service:
+  name: vcluster-fs-syncer
+  ###Block(serviceMetadata)
+  # Available options are listed here: https://app.opslevel.com/account
+  # To find the alias for a given lifecycle: https://www.opslevel.com/docs/api/opslevel-yml/#finding-the-alias-for-a-lifecycle
+  # To find the alias for a given tier: https://www.opslevel.com/docs/api/opslevel-yml/#finding-the-alias-for-a-tier
+  lifecycle: in_development
+  tier: tier_2
+  tools:
+  # Uncomment these as needed
+  # More examples: https://opslevel.com/docs/api/opslevel-yml/#example-service-opslevelyml
+  # - name: Datadog dashboard
+  #   category: metrics
+  #   url: link-to-datadog
+  #   environment:
+  # - name: Confluence
+  #   category: runbooks
+  #   url: link-to-confluence
+  # - name: PagerDuty
+  #   category: incidents
+  #   url: link-to-pagerduty-service
+  #   environment: Production
+  ###EndBlock(serviceMetadata)
+  product: Outreach
+  owner: cia_dev-tooling
+  language: Golang
+  framework: bootstrap
+  description: Synchronizes /var/lib/kubelet/pods for vclusters
+  aliases:
+    - vcluster-fs-syncer
+    - k8s:vcluster-fs-syncer
+  tags:
+    - key: repo
+      value: vcluster-fs-syncer
+    - key: reporting_team
+      value: cia-dev-tooling
+    - key: app
+      value: vcluster-fs-syncer
+    - key: name
+      value: vcluster-fs-syncer
+    - key: simple
+      value: "true"
+  repositories:
+    - name: getoutreach/vcluster-fs-syncer
+      path: "/"
+      provider: github
+  dependencies: []
