@@ -5,16 +5,16 @@
 [![Generated via Bootstrap](https://img.shields.io/badge/Outreach-Bootstrap-%235951ff)](https://github.com/getoutreach/bootstrap)
 
 <!--- Block(description) -->
-Synchronizes /var/lib/kubelet/pods for vclusters
+Synchronizes `/var/lib/kubelet/pods` into predictable vcluster scoped paths at `/var/lib/loft/<vclusterName>/pods`
 <!--- EndBlock(description) -->
 
 ----
 
 [Developing and contributing changes](CONTRIBUTING.md) |
-[Generated Documentation](https://engdocs.outreach.cloud/github.com/getoutreach/vcluster-fs-syncer/)
+[Generated Documentation](https://pkg.go.dev/github.com/getoutreach/vcluster-fs-syncer)
 
 <!--- Block(custom) -->
-# PLEASE EDIT THIS
+Currently deploying this is a little hacky, but you can do this by running `./scripts/shell-wrapper.sh deploy-to-dev.sh show | kubectl create -f -`
 <!--- EndBlock(custom) -->
 
 ## Dependencies and Setup
@@ -24,7 +24,6 @@ Synchronizes /var/lib/kubelet/pods for vclusters
 Make sure you've followed the [Launch Plan](https://outreach-io.atlassian.net/wiki/spaces/EN/pages/695698940/Launch+Plan).
 
 <!--- Block(dependencies) -->
-{[] []}
 <!--- EndBlock(dependencies) -->
 ### Add to your Development Environment
 
