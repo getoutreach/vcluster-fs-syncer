@@ -37,18 +37,6 @@ local configurationOverride = {
           ///EndBlock(developmentConfig)
         },
       },
-      fflags_configmap+: {
-        data_+: {
-          flagsToAdd+: custom_attributes,
-        },
-      },
-      trace_configmap+: {
-        data_+: {
-          GlobalTags+: {
-            DevEmail: devEmail,
-          },
-        },
-      },
     },
     ///Block(environmentConfig)
     ///EndBlock(environmentConfig)
@@ -65,6 +53,8 @@ local configurationOverride = {
     ///Block(defaultConfig)
     configmap+: {
       data_+:: {
+        fromPath: '/host_mnt/kubelet/pods',
+        toPath: '/host_mnt/loft',
       },
     },
     ///EndBlock(defaultConfig)

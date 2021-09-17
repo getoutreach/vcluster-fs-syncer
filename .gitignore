@@ -57,4 +57,5 @@ Pulumi.*.yaml
 
 ###Block(extras)
 testDir
+tilt_modules
 ###EndBlock(extras)

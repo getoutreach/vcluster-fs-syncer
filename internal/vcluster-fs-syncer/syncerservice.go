@@ -7,12 +7,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type SyncerService struct{}
+type SyncerService struct {
+	syncer *syncer.Syncer
+}
 
 func (s *SyncerService) Run(ctx context.Context, conf *Config) error {
-	return syncer.NewSyncer(conf.FromPath, conf.ToPath, logrus.New()).Start(ctx)
+	s.syncer = syncer.NewSyncer(conf.FromPath, conf.ToPath, logrus.New())
+	return s.syncer.Start(ctx)
 }
 
 func (s *SyncerService) Close(_ context.Context) error {
-	return nil
+	return s.syncer.Close()
 }

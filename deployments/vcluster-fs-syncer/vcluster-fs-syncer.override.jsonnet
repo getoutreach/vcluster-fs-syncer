@@ -22,24 +22,69 @@ local objects = {
     kind: 'DaemonSet',
     spec+: {
       replicas: null,
+      template+: {
+        spec+: {
+          serviceAccountName: $.svc_account.metadata.name,
+          containers_+:: {
+            default+: {
+              securityContext: {
+                privileged: true,
+                capabilities: {
+                  add: ["SYS_ADMIN"]
+                },
+                allowPrivilegeEscalation: true
+              },
+              volumeMounts_+:: {
+                'var-lib': {
+                  mountPath: '/host_mnt',
+
+                  // Enables our bind mounts from syncer to be reflected
+                  // on the host
+                  mountPropagation: 'Bidirectional',
+                },
+              },
+            },
+          },
+          volumes_+:: {
+            'var-lib': {
+              hostPath: {
+                path: '/var/lib',
+                type: 'Directory',
+              },
+            },
+          },
+        },
+      },
     },
   },
-  pdb: null,
+  svc_account: ok.ServiceAccount(name+'-syncer', namespace) {},
+  role: ok.ClusterRole(name+'-syncer', namespace) {
+    rules: [
+      {
+        apiGroups: [
+          ""
+        ],
+        resources: [
+          "pods"
+        ],
+        verbs: [
+          "get",
+          "list",
+          "watch"
+        ]
+      },
+    ],
+  },
+  rolebinding: ok.ClusterRoleBinding(name+"-syncer", namespace) {
+    roleRef_:: $.role,
+    subjects_:: [$.svc_account],
+  },
   ///EndBlock(override)
 };
 
 // All objects in this block will only be created in a dev cluster.
 // Ideally you'd put VaultSecrets here, or something else.
 local dev_objects = {
-  service+: {
-    metadata+: {
-      annotations+: {
-        // Allow everyone AdminGW gRPCUI access in dev environment
-        'outreach.io/admingw-allow-grpc-1000000': '.* Everyone',
-      },
-    },
-  },
-
   ///Block(devoverride)
   ///EndBlock(devoverride)
 };

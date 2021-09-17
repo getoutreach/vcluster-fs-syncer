@@ -33,5 +33,3 @@ ENV ZONEINFO=/zoneinfo.zip
 ###EndBlock(afterBuild)
 
 COPY --from=builder /src/bin/vcluster-fs-syncer /usr/local/bin/vcluster-fs-syncer
-
-USER systemuser
