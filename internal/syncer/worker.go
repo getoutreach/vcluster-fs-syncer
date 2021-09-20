@@ -15,7 +15,6 @@ func (s *Syncer) processNextWorkItem() bool {
 
 	// Invoke the method containing the business logic
 	err := s.reconcile(e)
-
 	if err == nil {
 		// Forget about the #AddRateLimited history of the key on every successful synchronization.
 		// This ensures that future processing of updates for this key is not delayed because of

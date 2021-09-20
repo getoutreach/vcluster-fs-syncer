@@ -92,6 +92,11 @@ func (s *Syncer) onAdded(vpo *vclusterPod) error {
 		return fmt.Errorf("failed to read pod dir, or isn't a directory")
 	}
 
+	if _, err := os.Stat(vclusterPodPath); err == nil {
+		// we've already processed this pod before
+		return nil
+	}
+
 	if err := os.MkdirAll(filepath.Dir(vclusterPodPath), 0755); err != nil {
 		return errors.Wrap(err, "failed to create pod directory")
 	}
@@ -188,6 +193,18 @@ func (s *Syncer) startInformer(ctx context.Context) error {
 				event: "added",
 			})
 		},
+		UpdateFunc: func(oldObj, obj interface{}) {
+			po, ok := obj.(*corev1.Pod)
+			if !ok {
+				s.log.WithField("event.type", reflect.TypeOf(po).String()).Warn("skipping event")
+				return
+			}
+
+			s.queue.Add(&event{
+				pod:   po,
+				event: "added",
+			})
+		},
 		DeleteFunc: func(obj interface{}) {
 			po, ok := obj.(*corev1.Pod)
 			if !ok {
@@ -242,11 +259,22 @@ func (s *Syncer) Start(ctx context.Context) error { //nolint:funlen
 }
 
 func (s *Syncer) reconcile(e *event) error {
+	if e.pod.Spec.NodeName == "" {
+		// pod wasn't scheduled, ignore it for now.
+		return nil
+	}
+
+	if e.pod.Spec.NodeName != os.Getenv("MY_NODE_NAME") {
+		// pod wasn't scheduled onto our node, skip for now.
+		return nil
+	}
+
 	vpo, err := s.getVClusterPod(e.pod)
 	if err != nil {
 		// pod wasn't a vcluster pod, ignore it
 		return nil
 	}
+
 	fields := logrus.Fields{
 		"pod.uid":    e.pod.ObjectMeta.UID,
 		"pod.key":    s.getPodKey(e.pod),
