@@ -92,6 +92,7 @@ func (s *Syncer) onAdded(vpo *vclusterPod) error {
 
 	if _, err := os.Stat(vclusterPodPath); err == nil {
 		// we've already processed this pod before
+		s.log.Info("skipping pod mount, already mounted")
 		return nil
 	}
 
@@ -304,9 +305,14 @@ func (s *Syncer) Close() error {
 
 	s.queue.ShutDown()
 
-	return filepath.Walk(s.toPath, func(path string, info os.FileInfo, err error) error {
+	return errors.Wrap(filepath.Walk(s.toPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+
+		// Skip non directories
+		if !info.IsDir() {
+			return nil
 		}
 
 		_, err = uuid.Parse(filepath.Base(path))
@@ -322,6 +328,7 @@ func (s *Syncer) Close() error {
 			s.log.WithError(err).WithField("pod.path", s.toPath).Warn("failed to remove bind mount")
 		}
 
-		return nil
-	})
+		// we just removed the directory, so do not attempt to walk it
+		return filepath.SkipDir
+	}), "failed to cleanup mounts")
 }
