@@ -86,8 +86,6 @@ func (s *Syncer) onAdded(vpo *vclusterPod) error {
 	vclusterPodPath := filepath.Join(s.toPath, vpo.VCPodInfo.ClusterName,
 		"kubelet", "pods", vpo.VCPodInfo.UID)
 
-	s.log.WithField("from", hostPodPath).WithField("to", vclusterPodPath).
-		Info("mounting vcluster pod")
 	if inf, err := os.Stat(hostPodPath); err != nil || !inf.IsDir() {
 		return fmt.Errorf("failed to read pod dir, or isn't a directory")
 	}
@@ -101,6 +99,8 @@ func (s *Syncer) onAdded(vpo *vclusterPod) error {
 		return errors.Wrap(err, "failed to create pod directory")
 	}
 
+	s.log.WithField("from", hostPodPath).WithField("to", vclusterPodPath).
+		Info("mounting vcluster pod")
 	return bindMount(hostPodPath, vclusterPodPath)
 }
 
@@ -202,7 +202,7 @@ func (s *Syncer) startInformer(ctx context.Context) error {
 
 			s.queue.Add(&event{
 				pod:   po,
-				event: "added",
+				event: "updated",
 			})
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -286,7 +286,7 @@ func (s *Syncer) reconcile(e *event) error {
 	s.log.WithFields(fields).Info("observed vcluster pod event")
 
 	switch e.event {
-	case "added":
+	case "added", "updated":
 		err = s.onAdded(vpo)
 	case "deleted":
 		err = s.onRemoved(vpo)
