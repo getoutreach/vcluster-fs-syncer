@@ -5,28 +5,34 @@ package syncer
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
-	"sync"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/getoutreach/devenv/pkg/kube"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	corev1 "k8s.io/api/core/v1"
 
 	// needed for auth
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
+
+type event struct {
+	pod *corev1.Pod
+
+	// added or deleted
+	event string
+}
 
 type vclusterPod struct {
 	corev1.Pod
@@ -52,8 +58,8 @@ type Syncer struct {
 	k     kubernetes.Interface
 	rconf *rest.Config
 
-	podCache   map[string]vclusterPod
-	podCacheMu sync.RWMutex
+	queue       workqueue.RateLimitingInterface
+	threadiness int
 }
 
 // NewSyncer creates bind mounts from to -> from based on changes
@@ -65,49 +71,53 @@ func NewSyncer(from, to string, log logrus.FieldLogger) *Syncer {
 	}
 
 	return &Syncer{
-		fromPath: from,
-		toPath:   to,
-		log:      log,
-		k:        k,
-		rconf:    conf,
-		podCache: make(map[string]vclusterPod),
+		fromPath:    from,
+		toPath:      to,
+		log:         log,
+		k:           k,
+		rconf:       conf,
+		queue:       workqueue.NewRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(time.Second*1, time.Minute*1)),
+		threadiness: 1,
 	}
 }
 
-func (s *Syncer) onAdded(file string) error {
-	id, err := uuid.Parse(filepath.Base(file))
-	if err != nil {
-		return errors.Wrap(err, "unlikely to be pod, name wasn't a UUID")
-	}
+func (s *Syncer) onAdded(vpo *vclusterPod) error {
+	hostPodPath := filepath.Join(s.fromPath, string(vpo.UID))
+	vclusterPodPath := filepath.Join(s.toPath, vpo.VCPodInfo.ClusterName,
+		"kubelet", "pods", vpo.VCPodInfo.UID)
 
-	if inf, err := os.Stat(file); err != nil || !inf.IsDir() {
+	if inf, err := os.Stat(hostPodPath); err != nil || !inf.IsDir() {
 		return fmt.Errorf("failed to read pod dir, or isn't a directory")
 	}
 
-	s.podCacheMu.RLock()
-	po, ok := s.podCache[id.String()]
-	s.podCacheMu.RUnlock()
-	if !ok {
-		return fmt.Errorf("pod wasn't found in cache")
+	if _, err := os.Stat(vclusterPodPath); err == nil {
+		// we've already processed this pod before
+		s.log.Info("skipping pod mount, already mounted")
+		return nil
 	}
 
-	s.log.WithField("pod.key", s.getPodKey(po)).Info("found new pod directory")
+	if err := os.MkdirAll(filepath.Dir(vclusterPodPath), 0755); err != nil {
+		return errors.Wrap(err, "failed to create pod directory")
+	}
 
-	s.log.
-		WithField("pod.key", s.getPodKey(po.VCPodInfo)).
-		WithField("pod.uid", po.VCPodInfo.UID).
-		WithField("vcluster.name", po.VCPodInfo.ClusterName).
-		Info("retrieved vcluster pod information")
-
-	toPath := filepath.Join(s.toPath, po.VCPodInfo.ClusterName,
-		"kubelet", "pods", po.VCPodInfo.UID)
-
-	//nolint:errcheck // Why: Will fix tomorrow
-	os.MkdirAll(filepath.Dir(toPath), 0755)
-
-	s.log.WithField("from", file).WithField("to", toPath).
+	s.log.WithField("from", hostPodPath).WithField("to", vclusterPodPath).
 		Info("mounting vcluster pod")
-	return bindMount(file, toPath)
+	return bindMount(hostPodPath, vclusterPodPath)
+}
+
+func (s *Syncer) onRemoved(vpo *vclusterPod) error {
+	toPath := filepath.Join(s.toPath, vpo.VCPodInfo.ClusterName,
+		"kubelet", "pods", vpo.VCPodInfo.UID)
+
+	s.log.WithField("pod.path", toPath).
+		Info("unmounting vcluster pod")
+
+	if _, err := os.Stat(toPath); os.IsNotExist(err) {
+		s.log.WithField("pod.path", toPath).Warn("not cleaning up directory, didn't exist")
+		return nil
+	}
+
+	return unmountBind(toPath)
 }
 
 func (s *Syncer) getPodKey(inf interface{}) string {
@@ -136,36 +146,8 @@ func (s *Syncer) getPodKey(inf interface{}) string {
 	return namespace + "/" + name
 }
 
-func (s *Syncer) onRemoved(file string) error {
-	id, err := uuid.Parse(filepath.Base(file))
-	if err != nil {
-		return errors.Wrap(err, "unlikely to be pod, name wasn't a UUID")
-	}
-
-	s.podCacheMu.RLock()
-	po, ok := s.podCache[id.String()]
-	s.podCacheMu.RUnlock()
-	if !ok {
-		return fmt.Errorf("pod wasn't found in cache")
-	}
-
-	s.log.WithField("pod.key", s.getPodKey(po)).
-		WithField("pod.uid", po.UID).
-		Info("found deleted pod")
-
-	s.log.WithField("pod.key", s.getPodKey(po.VCPodInfo)).
-		WithField("pod.uid", po.VCPodInfo.UID).
-		WithField("vcluster.name", po.VCPodInfo.ClusterName).
-		Info("retrieved vcluster pod information")
-
-	toPath := filepath.Join(s.toPath, po.VCPodInfo.ClusterName,
-		"kubelet", "pods", po.VCPodInfo.UID)
-
-	s.log.WithField("pod.path", toPath).
-		Info("unmounting vcluster pod")
-	return unmountBind(toPath)
-}
-
+// getVClusterPod returns pod with information about the associated
+// vcluster attached to it
 func (s *Syncer) getVClusterPod(po *corev1.Pod) (*vclusterPod, error) {
 	vcPodName, ok := po.ObjectMeta.Annotations["vcluster.loft.sh/name"]
 	if !ok {
@@ -197,61 +179,44 @@ func (s *Syncer) getVClusterPod(po *corev1.Pod) (*vclusterPod, error) {
 
 // startInformer starts an informer that updates a pod uid -> key cache
 func (s *Syncer) startInformer(ctx context.Context) error {
-	// TODO: if this gets real, use a worker queue here
 	inf := informers.NewSharedInformerFactoryWithOptions(s.k, 5*time.Minute).
 		Core().V1().Pods().Informer()
 	inf.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			s.podCacheMu.Lock()
-			defer s.podCacheMu.Unlock()
-
 			po, ok := obj.(*corev1.Pod)
 			if !ok {
 				s.log.WithField("event.type", reflect.TypeOf(po).String()).Warn("skipping event")
 				return
 			}
 
-			s.log.WithField("pod.uid", po.ObjectMeta.UID).
-				WithField("pod.key", s.getPodKey(po)).
-				Debug("observed pod creation")
-
-			vpo, err := s.getVClusterPod(po)
-			if err != nil {
+			s.queue.Add(&event{
+				pod:   po,
+				event: "added",
+			})
+		},
+		UpdateFunc: func(oldObj, obj interface{}) {
+			po, ok := obj.(*corev1.Pod)
+			if !ok {
+				s.log.WithField("event.type", reflect.TypeOf(po).String()).Warn("skipping event")
 				return
 			}
 
-			s.log.WithField("pod.uid", po.ObjectMeta.UID).
-				WithField("pod.key", s.getPodKey(vpo)).
-				Info("observed vcluster pod creation")
-
-			s.podCache[string(po.ObjectMeta.UID)] = *vpo
+			s.queue.Add(&event{
+				pod:   po,
+				event: "updated",
+			})
 		},
 		DeleteFunc: func(obj interface{}) {
-			s.podCacheMu.Lock()
-			defer s.podCacheMu.Unlock()
-
 			po, ok := obj.(*corev1.Pod)
 			if !ok {
 				s.log.WithField("event.type", reflect.TypeOf(po).String()).Warn("skipping event")
 				return
 			}
 
-			s.log.WithField("pod.uid", po.ObjectMeta.UID).
-				WithField("pod.key", s.getPodKey(po)).
-				Debug("observed pod deletion")
-
-			vpo, err := s.getVClusterPod(po)
-			if err != nil {
-				return
-			}
-
-			s.log.WithField("pod.uid", po.ObjectMeta.UID).
-				WithField("pod.key", s.getPodKey(vpo)).
-				Info("observed vcluster pod deletion")
-
-			// TODO(jaredallard): need to expire these so we don't consume all the RAM
-			s.podCache[string(po.ObjectMeta.UID)].VCPodInfo.Deleted = true
-			s.podCache[string(po.ObjectMeta.UID)].VCPodInfo.ExpiresAt = time.Now().Add(5 * time.Minute)
+			s.queue.Add(&event{
+				pod:   po,
+				event: "deleted",
+			})
 		},
 	})
 
@@ -264,12 +229,17 @@ func (s *Syncer) startInformer(ctx context.Context) error {
 		return fmt.Errorf("failed to sync cache")
 	}
 
-	s.log.Info("started informer")
+	s.log.Info("Informer started and synced")
 	return nil
 }
 
 // Start starts the syncer.
 func (s *Syncer) Start(ctx context.Context) error { //nolint:funlen
+	s.log.Infof("Starting %d proxier worker(s)", s.threadiness)
+	for i := 0; i < s.threadiness; i++ {
+		go wait.Until(s.runWorker, time.Second, ctx.Done())
+	}
+
 	if _, err := os.Stat(s.fromPath); err != nil {
 		return errors.Wrapf(err, "failed to access source path '%s'", s.fromPath)
 	}
@@ -282,73 +252,67 @@ func (s *Syncer) Start(ctx context.Context) error { //nolint:funlen
 		}
 	}
 
-	s.startInformer(ctx)
-
-	w, err := fsnotify.NewWatcher()
-	if err != nil {
-		return errors.Wrap(err, "failed to create watcher")
-	}
-	defer func() {
-		s.log.Warn("filesystem watcher stopped")
-		w.Close() //nolint:errcheck // Why: best effort
-	}()
-
-	// TODO: queue these, with a retry
-	go func() {
-		defer func() {
-			s.log.WithError(ctx.Err()).Warn("watcher stopped")
-		}()
-
-		for ctx.Err() == nil {
-			select {
-			case event := <-w.Events:
-				var err error     //nolint:govet // Why: we're OK shadowing err
-				switch event.Op { //nolint:exhaustive
-				case fsnotify.Create:
-					err = s.onAdded(event.Name)
-				case fsnotify.Remove:
-					err = s.onRemoved(event.Name)
-				}
-				if err != nil {
-					s.log.WithError(err).WithField("file.name", event.Name).WithField("event.Type", event.Op.String()).
-						Warn("failed to process file change event")
-				}
-			case err := <-w.Errors: //nolint:govet // Why: We're OK shadowing err
-				s.log.WithError(err).Warn("failed to watch file change")
-			}
-		}
-	}()
-
-	dirs, err := ioutil.ReadDir(s.fromPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to read initial pods")
-	}
-
-	for _, fileName := range dirs {
-		err := s.onAdded(filepath.Join(s.fromPath, fileName.Name())) //nolint:govet // Why: we're OK shadowing err
-		if err != nil {
-			s.log.WithError(err).WithField("file.name", fileName.Name()).
-				Warn("failed to process initial pod")
-		}
-	}
-
-	err = w.Add(s.fromPath)
-	if err != nil {
-		return errors.Wrapf(err, "failed to start watching '%s'", s.fromPath)
-	}
-
-	s.log.WithField("file.path", s.fromPath).Info("started filesystem watcher")
+	s.startInformer(ctx) //nolint:errcheck // Why: uneeded
 
 	<-ctx.Done()
 
 	return nil
 }
 
+func (s *Syncer) reconcile(e *event) error {
+	if e.pod.Spec.NodeName == "" {
+		// pod wasn't scheduled, ignore it for now.
+		return nil
+	}
+
+	if e.pod.Spec.NodeName != os.Getenv("MY_NODE_NAME") {
+		// pod wasn't scheduled onto our node, skip for now.
+		return nil
+	}
+
+	vpo, err := s.getVClusterPod(e.pod)
+	if err != nil {
+		// pod wasn't a vcluster pod, ignore it
+		return nil
+	}
+
+	fields := logrus.Fields{
+		"pod.uid":    e.pod.ObjectMeta.UID,
+		"pod.key":    s.getPodKey(e.pod),
+		"vpod.uid":   vpo.VCPodInfo.UID,
+		"vpod.key":   s.getPodKey(vpo),
+		"event.type": e.event,
+	}
+
+	s.log.WithFields(fields).Info("observed vcluster pod event")
+
+	switch e.event {
+	case "added", "updated":
+		err = s.onAdded(vpo)
+	case "deleted":
+		err = s.onRemoved(vpo)
+	default:
+		err = fmt.Errorf("unknown event %s", e.event)
+	}
+	if err != nil {
+		s.log.WithError(err).WithFields(fields).Error("failed to process vcluster pod event")
+	}
+	return err
+}
+
 func (s *Syncer) Close() error {
-	s.log.Info("shutting down syncer")
-	return filepath.Walk(s.toPath, func(path string, info os.FileInfo, err error) error {
+	s.log.Info("Shutting down syncer")
+
+	s.queue.ShutDown()
+
+	return errors.Wrap(filepath.Walk(s.toPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+
+		// Skip non directories
+		if !info.IsDir() {
+			return nil
 		}
 
 		_, err = uuid.Parse(filepath.Base(path))
@@ -364,6 +328,7 @@ func (s *Syncer) Close() error {
 			s.log.WithError(err).WithField("pod.path", s.toPath).Warn("failed to remove bind mount")
 		}
 
-		return nil
-	})
+		// we just removed the directory, so do not attempt to walk it
+		return filepath.SkipDir
+	}), "failed to cleanup mounts")
 }

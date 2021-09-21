@@ -25,7 +25,7 @@ local configurationOverride = {
           ListenHost: '127.0.0.1',
           ///Block(localDevelopmentConfig)
           fromPath: './testDir/pods',
-          toPath: './testDir/loft/pods',
+          toPath: './testDir/loft',
           ///EndBlock(localDevelopmentConfig)
         },
       },
