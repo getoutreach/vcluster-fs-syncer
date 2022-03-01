@@ -35,7 +35,7 @@ service:
     - key: repo
       value: vcluster-fs-syncer
     - key: reporting_team
-      value: cia-dev-tooling
+      value: fnd-dtss
     - key: app
       value: vcluster-fs-syncer
     - key: name
