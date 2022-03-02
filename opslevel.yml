@@ -24,7 +24,7 @@ service:
   #   environment: Production
   ###EndBlock(serviceMetadata)
   product: Outreach
-  owner: cia_dev-tooling
+  owner: fnd_dtss
   language: Golang
   framework: bootstrap
   description: Synchronizes /var/lib/kubelet/pods for vclusters
