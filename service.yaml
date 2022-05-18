@@ -1,3 +1,63 @@
 name: vcluster-fs-syncer
-lintroller: platinum
+reportingTeam: ""
+description: ""
 oss: true
+slack: ""
+circleAPIKey: ""
+lintroller: platinum
+releaseType: ""
+deployTo:
+  environments:
+    - staging
+arguments:
+  circleAPIKey: ""
+  commands: []
+  datadogDashboards:
+    custom: []
+    mainLink: ""
+  dependencies:
+    optional: []
+    required: []
+  deployTo:
+    environments:
+      - staging
+    serviceDomain: bento
+  description: ""
+  grpcClients: []
+  kubernetes:
+    groups: []
+  lifecycle: ""
+  lintroller: platinum
+  opslevel:
+    confluenceSpaceKey: ""
+    datadogDashboards:
+      mainLink: ""
+    designDocumentLink: ""
+  oss: true
+  pagerDutyLink: ""
+  releaseOptions:
+    allowMajorVersions: null
+    enablePrereleases: false
+  reportingTeam: ""
+  service: true
+  serviceActivities: []
+  tier: 0
+  tutorial: false
+  vaultSecrets:
+    - deploy/honeycomb_new/%(environment)s/honeycomb
+    - deploy/launchdarkly/%(environment)s/launchdarkly
+    - deploy/mint/%(environment)s/validation/mint-validator-payload
+    - deploy/flagship-shared-secret/%(environment)s/authn-flagship-payload
+modules:
+  - name: github.com/getoutreach/stencil-golang
+  - name: github.com/getoutreach/stencil-opslevel
+  - name: github.com/getoutreach/stencil-base
+opsLevel:
+  serviceTier: 0
+  lifecycle: ""
+  confluenceSpaceKey: ""
+  pagerDutyLink: ""
+  datadogDashboards:
+    mainLink: ""
+    custom: []
+  designDocumentLink: ""
