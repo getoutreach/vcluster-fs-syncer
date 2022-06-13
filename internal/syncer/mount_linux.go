@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 
+	"github.com/moby/sys/mount"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -36,20 +36,14 @@ func bindMount(from, to string) error {
 		return errors.Wrap(err, "failed to create to dir")
 	}
 
-	if err := syscall.Mount(absFrom, to, "bind", syscall.MS_BIND, ""); err != nil {
-		return fmt.Errorf("Could not bind mount %v to %v: %v", absFrom, to, err)
-	}
-
-	if err := syscall.Mount("none", to, "", syscall.MS_SHARED, ""); err != nil {
-		return fmt.Errorf("Could not make mount point %v %s: %v", to, syscall.MS_SHARED, err)
-	}
-
-	return nil
+	return errors.Wrap(
+		mount.Mount(absFrom, to, "bind", "rbind,rw"),
+		"failed to bind mount",
+	)
 }
 
 func unmountBind(dir string) error {
-	err := syscall.Unmount(dir, syscall.MNT_DETACH|UmountNoFollow)
-	if err != nil {
+	if err := mount.Unmount(dir); err != nil {
 		return errors.Wrapf(err, "failed to unmount %s", dir)
 	}
 
