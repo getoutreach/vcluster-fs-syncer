@@ -1,0 +1,11 @@
+time="2022-06-17T13:41:31-07:00" level=info msg="bootstrap v10.1.0"
+time="2022-06-17T13:41:32-07:00" level=info msg="go version go1.17.9 darwin/arm64\n"
+time="2022-06-17T13:41:32-07:00" level=info msg="default service domain with Bento"
+time="2022-06-17T13:41:32-07:00" level=info msg="available environments for service domain 'bento' are '[staging production ops]'"
+time="2022-06-17T13:41:32-07:00" level=info msg="found previous version of bootstrap" previousVersion=8.0.1
+time="2022-06-17T13:41:32-07:00" level=info msg="using IdentityFile for host github.com" key=/Users/georgeshaw/.ssh/github_id_rsa
+time="2022-06-17T13:41:32-07:00" level=info msg="cloning git@github.com:getoutreach/bootstrap.git@v10.1.0 ..."
+time="2022-06-17T13:41:35-07:00" level=info msg="Running pre-processors"
+time="2022-06-17T13:41:35-07:00" level=info msg="Processed file 'service.yaml' in post-processing step"
+time="2022-06-17T13:41:35-07:00" level=info msg="creating files ..."
+time="2022-06-17T13:41:35-07:00" level=error msg="failed to run: run codegen: failed to process service manifest: description cannot be empty in service.yaml"
