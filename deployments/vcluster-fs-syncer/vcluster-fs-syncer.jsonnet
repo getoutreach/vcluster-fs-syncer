@@ -14,7 +14,7 @@ local isLocalDev = environment == 'local_development';
 local sharedLabels = {
   repo: name,
   bento: bento,
-  reporting_team: 'fnd-dtss',
+  reporting_team: 'fnd-dt',
 };
 
 local all = {
