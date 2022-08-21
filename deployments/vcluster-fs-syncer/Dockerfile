@@ -22,7 +22,7 @@ RUN --mount=type=ssh --mount=type=cache,target=/go/pkg --mount=type=cache,target
 FROM gcr.io/outreach-docker/alpine:3.14
 ENTRYPOINT ["/usr/local/bin/vcluster-fs-syncer"]
 
-LABEL "io.outreach.reporting_team"="fnd-dtss"
+LABEL "io.outreach.reporting_team"="fnd-dt"
 LABEL "io.outreach.repo"="vcluster-fs-syncer"
 
 # Add timezone information.

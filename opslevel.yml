@@ -24,7 +24,7 @@ service:
   #   environment: Production
   ###EndBlock(serviceMetadata)
   product: Outreach
-  owner: fnd_dtss
+  owner: fnd-dt
   language: Golang
   framework: bootstrap
   description: Synchronizes /var/lib/kubelet/pods for vclusters
@@ -35,7 +35,7 @@ service:
     - key: repo
       value: vcluster-fs-syncer
     - key: reporting_team
-      value: fnd-dtss
+      value: fnd-dt
     - key: app
       value: vcluster-fs-syncer
     - key: name
