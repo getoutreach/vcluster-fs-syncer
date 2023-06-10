@@ -1,3 +1,7 @@
+// Copyright 2023 Outreach Corporation. All Rights Reserved.
+
+// Description: Implements bind mount logic for Linux.
+
 package syncer
 
 import (

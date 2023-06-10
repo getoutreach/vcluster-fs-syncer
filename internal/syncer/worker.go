@@ -1,5 +1,11 @@
+// Copyright 2023 Outreach Corporation. All Rights Reserved.
+
+// Description: Implements the syncer worker logic for client-go.
+
 package syncer
 
+// processNextWorkItem processes a work item handling
+// retry logic, queueing and rate limiting.
 func (s *Syncer) processNextWorkItem() bool {
 	einf, quit := s.queue.Get()
 	if quit {

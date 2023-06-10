@@ -1,4 +1,8 @@
-package vcluster_fs_syncer //nolint:revive
+// Copyright 2023 Outreach Corporation. All Rights Reserved.
+
+// Description: Contains the SyncerService struct and its methods.
+
+package vcluster_fs_syncer //nolint:revive,doculint // Why: We allow [-_].
 
 import (
 	"context"

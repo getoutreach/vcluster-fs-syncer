@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// GetKubeConfig returns the path to the Kubernetes config file
 func GetKubeConfig() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -31,12 +32,13 @@ func GetKubeClient() (kubernetes.Interface, error) {
 	return k, err
 }
 
+// GetKubeClientWithConfig returns a Kubernetes client and config
 func GetKubeClientWithConfig() (kubernetes.Interface, *rest.Config, error) {
 	var config *rest.Config
 	var err error
 
 	if config, err = rest.InClusterConfig(); err != nil {
-		kubeConfPath, err := GetKubeConfig() //nolint:govet // Why: Error shadowing is OK...
+		kubeConfPath, err := GetKubeConfig()
 		if err != nil {
 			return nil, nil, err
 		}
