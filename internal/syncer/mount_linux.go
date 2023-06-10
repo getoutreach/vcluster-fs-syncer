@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// UmountNoFollow is the flag to unmount without following symlinks.
 // Sadly golang/sys doesn't have UmountNoFollow although it's there since Linux 2.6.34
 const UmountNoFollow = 0x8
 
@@ -33,7 +34,7 @@ func bindMount(from, to string) error {
 	if err := os.Mkdir(to, fromSt.Mode()); os.IsExist(err) {
 		err = unmountBind(from)
 		if err != nil {
-			// TODO: better way to handle this?
+			// TODO(jaredallard): better way to handle this?
 			logrus.WithError(err).Warn("failed to unmount dir for remount")
 		}
 	} else if err != nil {
