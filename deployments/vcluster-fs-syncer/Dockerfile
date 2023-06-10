@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.0-experimental
-FROM gcr.io/outreach-docker/golang:1.17.9 as builder
+FROM gcr.io/outreach-docker/golang:1.19.8 as builder
 ARG VERSION
 ENV GOCACHE "/go-build-cache"
 ENV GOPRIVATE github.com/getoutreach/*
@@ -9,8 +9,12 @@ WORKDIR /src
 # Copy our source code into the container for building
 COPY . .
 
+## <<Stencil::Block(beforeBuild)>>
+
+## <</Stencil::Block>>
+
 # Cache dependencies across builds
-RUN --mount=type=ssh --mount=type=cache,target=/go/pkg make dep
+RUN --mount=type=ssh --mount=type=cache,target=/go/pkg go mod download
 
 # Build our application, caching the go build cache, but also using
 # the dependency cache from earlier.
@@ -18,8 +22,7 @@ RUN --mount=type=ssh --mount=type=cache,target=/go/pkg --mount=type=cache,target
     mkdir -p bin; \
     go build -o /src/bin/ -ldflags "-X github.com/getoutreach/gobox/pkg/app.Version=$VERSION" -v ./cmd/...
 
-
-FROM gcr.io/outreach-docker/alpine:3.14
+FROM gcr.io/outreach-docker/alpine:3.16
 ENTRYPOINT ["/usr/local/bin/vcluster-fs-syncer"]
 
 LABEL "io.outreach.reporting_team"="fnd-dt"
@@ -29,7 +32,15 @@ LABEL "io.outreach.repo"="vcluster-fs-syncer"
 COPY --from=builder /usr/local/go/lib/time/zoneinfo.zip /zoneinfo.zip
 ENV ZONEINFO=/zoneinfo.zip
 
-###Block(afterBuild)
-###EndBlock(afterBuild)
+# Install certificates for RDS connectivity.
+RUN apk add --no-cache curl \
+    &&  curl "https://s3.amazonaws.com/rds-downloads/rds-combined-ca-bundle.pem" --output /usr/local/share/ca-certificates/rds-combined-ca-bundle.pem \
+    &&  update-ca-certificates \
+    &&  apk del --no-cache curl
+
+## <<Stencil::Block(afterBuild)>>
+
+## <</Stencil::Block>>
 
 COPY --from=builder /src/bin/vcluster-fs-syncer /usr/local/bin/vcluster-fs-syncer
+USER systemuser

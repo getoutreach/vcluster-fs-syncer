@@ -1,0 +1,150 @@
+version: v1.34.0
+modules:
+    - name: github.com/getoutreach/devbase
+      url: https://github.com/getoutreach/devbase
+      version: v2.13.4
+    - name: github.com/getoutreach/stencil-base
+      url: https://github.com/getoutreach/stencil-base
+      version: v0.11.0
+    - name: github.com/getoutreach/stencil-circleci
+      url: https://github.com/getoutreach/stencil-circleci
+      version: v1.9.0
+    - name: github.com/getoutreach/stencil-golang
+      url: https://github.com/getoutreach/stencil-golang
+      version: v1.11.3
+files:
+    - name: .air.toml
+      template: .air.toml.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: .circleci/config.yml
+      template: .circleci/config.yml.tpl
+      module: github.com/getoutreach/stencil-circleci
+    - name: .dockerignore
+      template: .dockerignore.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: .editorconfig
+      template: .editorconfig.tpl
+      module: github.com/getoutreach/stencil-base
+    - name: .gitattributes
+      template: .gitattributes.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: .github/CODEOWNERS
+      template: .github/CODEOWNERS.tpl
+      module: github.com/getoutreach/stencil-base
+    - name: .github/dependabot.yml
+      template: .github/dependabot.yml.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: .github/pull_request_template.md
+      template: .github/pull_request_template.md.tpl
+      module: github.com/getoutreach/stencil-base
+    - name: .gitignore
+      template: .gitignore.tpl
+      module: github.com/getoutreach/stencil-base
+    - name: .prettierignore
+      template: .prettierignore.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: .prettierrc.yaml
+      template: .prettierrc.yaml.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: .releaserc.yaml
+      template: .releaserc.yaml.tpl
+      module: github.com/getoutreach/stencil-base
+    - name: .tool-versions
+      template: .tool-versions.tpl
+      module: github.com/getoutreach/stencil-base
+    - name: .vscode/extensions.json
+      template: .vscode/extensions.json.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: .vscode/launch.json
+      template: .vscode/launch.json.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: .vscode/private.env
+      template: .vscode/private.env.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: .vscode/settings.json
+      template: .vscode/settings.json.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: CONTRIBUTING.md
+      template: CONTRIBUTING.md.tpl
+      module: github.com/getoutreach/stencil-base
+    - name: LICENSE
+      template: LICENSE.tpl
+      module: github.com/getoutreach/stencil-base
+    - name: Makefile
+      template: Makefile.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: README.md
+      template: README.md.tpl
+      module: github.com/getoutreach/stencil-base
+    - name: cmd/vcluster-fs-syncer/main.go
+      template: cmd/main.go.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: deployments/docker.yaml
+      template: deployments/docker.yaml.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: deployments/vcluster-fs-syncer/Dockerfile
+      template: deployments/appname/Dockerfile.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: deployments/vcluster-fs-syncer/mixins/devenv.jsonnet
+      template: deployments/appname/mixins/devenv.jsonnet.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: deployments/vcluster-fs-syncer/resources.libsonnet
+      template: deployments/appname/resources.libsonnet.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: deployments/vcluster-fs-syncer/vcluster-fs-syncer.config.jsonnet
+      template: deployments/appname/app.config.jsonnet.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: deployments/vcluster-fs-syncer/vcluster-fs-syncer.jsonnet
+      template: deployments/appname/app.jsonnet.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: deployments/vcluster-fs-syncer/vcluster-fs-syncer.override.jsonnet
+      template: deployments/appname/app.override.jsonnet.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: devenv.yaml
+      template: devenv.yaml.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: devspace.yaml
+      template: devspace.yaml.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: go.mod
+      template: go.mod.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: internal/vcluster-fs-syncer/config.go
+      template: internal/appName/config.go.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: internal/vcluster-fs-syncer/doc.go
+      template: internal/appName/doc.go.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: internal/vcluster-fs-syncer/httpservice.go
+      template: internal/appName/http/httpservice.go.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: monitoring/dashboard.tf
+      template: monitoring/dashboard.tf.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: monitoring/datadog.tf
+      template: monitoring/datadog.tf.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: monitoring/main.tf
+      template: monitoring/main.tf.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: monitoring/slos.tf
+      template: monitoring/slos.tf.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: monitoring/terraform.tfvars
+      template: monitoring/terraform.tfvars.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: monitoring/versions.tf
+      template: monitoring/versions.tf.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: package.json
+      template: package.json.tpl
+      module: github.com/getoutreach/stencil-base
+    - name: scripts/devbase.sh
+      template: scripts/devbase.sh.tpl
+      module: github.com/getoutreach/devbase
+    - name: scripts/golangci.yml
+      template: scripts/golangci.yml.tpl
+      module: github.com/getoutreach/stencil-golang
+    - name: scripts/shell-wrapper.sh
+      template: scripts/shell-wrapper.sh.tpl
+      module: github.com/getoutreach/devbase

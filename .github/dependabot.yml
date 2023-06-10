@@ -1,9 +1,13 @@
 version: 2
 updates:
+  # Golang dependencies
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "daily"
+    # stencil-golang managed dependencies
+    ignore:
+      - dependency-name: github.com/getoutreach/gobox
 
   # Ignore semantic-release, this code is only executed in CI.
   - package-ecosystem: "npm"
@@ -13,5 +17,6 @@ updates:
     ignore:
       - dependency-name: "*"
 
-  ###Block(dependabotPackageManagers)
-  ###EndBlock(dependabotPackageManagers)
+  ## <<Stencil::Block(dependabotPackageManagers)>>
+
+  ## <</Stencil::Block>>

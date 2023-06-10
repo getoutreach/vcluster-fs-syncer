@@ -1,0 +1,4 @@
+service: true
+dependencies:
+  optional: []
+  required: []

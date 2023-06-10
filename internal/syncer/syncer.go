@@ -1,3 +1,7 @@
+// Copyright 2023 Outreach Corporation. All Rights Reserved.
+
+// Description: Implements the main syncer logic.
+
 // Package syncer implements the syncer for synchronization
 // of /var/lib/kubelet/pods.
 package syncer
@@ -10,7 +14,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/getoutreach/devenv/pkg/kube"
+	"github.com/getoutreach/vcluster-fs-syncer/internal/kube"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -27,6 +31,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
+// event is a pod event.
 type event struct {
 	pod *corev1.Pod
 
@@ -34,12 +39,16 @@ type event struct {
 	event string
 }
 
+// vclusterPod is a pod with the associated vcluster pod
+// information attached to it.
 type vclusterPod struct {
 	corev1.Pod
 
 	VCPodInfo *vclusterPodInfo
 }
 
+// vclusterPodInfo is the information about the vcluster pod
+// that is attached to a host cluster pod.
 type vclusterPodInfo struct {
 	ClusterName string
 	Name        string
@@ -50,6 +59,8 @@ type vclusterPodInfo struct {
 	ExpiresAt time.Time
 }
 
+// Syncer is the main syncer struct that contains
+// settings and dependencies for the syncer.
 type Syncer struct {
 	fromPath string
 	toPath   string
@@ -81,6 +92,9 @@ func NewSyncer(from, to string, log logrus.FieldLogger) *Syncer {
 	}
 }
 
+// onAdded is called when a pod is added to the queue. It will
+// bind mount the pod from the host path to the vcluster specific
+// path.
 func (s *Syncer) onAdded(vpo *vclusterPod) error {
 	hostPodPath := filepath.Join(s.fromPath, string(vpo.UID))
 	vclusterPodPath := filepath.Join(s.toPath, vpo.VCPodInfo.ClusterName,
@@ -96,7 +110,7 @@ func (s *Syncer) onAdded(vpo *vclusterPod) error {
 		return nil
 	}
 
-	if err := os.MkdirAll(filepath.Dir(vclusterPodPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(vclusterPodPath), 0o755); err != nil {
 		return errors.Wrap(err, "failed to create pod directory")
 	}
 
@@ -105,6 +119,8 @@ func (s *Syncer) onAdded(vpo *vclusterPod) error {
 	return bindMount(hostPodPath, vclusterPodPath)
 }
 
+// onRemoved is called when a pod is removed from the queue. It will
+// unmount the pod from the vcluster specific path if it exists.
 func (s *Syncer) onRemoved(vpo *vclusterPod) error {
 	toPath := filepath.Join(s.toPath, vpo.VCPodInfo.ClusterName,
 		"kubelet", "pods", vpo.VCPodInfo.UID)
@@ -120,6 +136,8 @@ func (s *Syncer) onRemoved(vpo *vclusterPod) error {
 	return unmountBind(toPath)
 }
 
+// getPodKey returns a unique key for the pod used
+// for the queue and logging.
 func (s *Syncer) getPodKey(inf interface{}) string {
 	name := ""
 	namespace := ""
@@ -234,7 +252,7 @@ func (s *Syncer) startInformer(ctx context.Context) error {
 }
 
 // Start starts the syncer.
-func (s *Syncer) Start(ctx context.Context) error { //nolint:funlen
+func (s *Syncer) Start(ctx context.Context) error {
 	s.log.Infof("Starting %d proxier worker(s)", s.threadiness)
 	for i := 0; i < s.threadiness; i++ {
 		go wait.Until(s.runWorker, time.Second, ctx.Done())
@@ -244,21 +262,25 @@ func (s *Syncer) Start(ctx context.Context) error { //nolint:funlen
 		return errors.Wrapf(err, "failed to access source path '%s'", s.fromPath)
 	}
 
+	// Check if the destination path exists, if not create it
 	if _, err := os.Stat(s.toPath); os.IsNotExist(err) {
 		s.log.WithField("destination", s.toPath).Info("creating destination path")
-		err = os.MkdirAll(s.toPath, 0755)
-		if err != nil {
+		if err := os.MkdirAll(s.toPath, 0o755); err != nil {
 			return errors.Wrapf(err, "failed to create destination path '%s'", s.toPath)
 		}
 	}
 
-	s.startInformer(ctx) //nolint:errcheck // Why: uneeded
+	if err := s.startInformer(ctx); err != nil {
+		return errors.Wrap(err, "failed to start informer")
+	}
 
 	<-ctx.Done()
 
 	return nil
 }
 
+// reconcile is the main reconciliation loop for the syncer
+// handles events from the informer and processes them.
 func (s *Syncer) reconcile(e *event) error {
 	if e.pod.Spec.NodeName == "" {
 		// pod wasn't scheduled, ignore it for now.
@@ -300,6 +322,8 @@ func (s *Syncer) reconcile(e *event) error {
 	return err
 }
 
+// Close shuts down the syncer and cleans up
+// any bind mounts that were created.
 func (s *Syncer) Close() error {
 	s.log.Info("Shutting down syncer")
 

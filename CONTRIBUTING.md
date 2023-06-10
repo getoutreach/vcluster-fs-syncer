@@ -1,99 +1,83 @@
 # vcluster-fs-syncer
 
-<!--- Block(custom) -->
-<!--
-We expect CONTRIBUTING.md to look mostly identical for all bootstrap services.
+<!-- <<Stencil::Block(customGeneralInformation)>> -->
 
-If your service requires special instructions for developers, you can place
-those instructions in this block. If your service isn't special, it's safe to
-leave this comment here as-is.
+<!-- <</Stencil::Block>> -->
 
-If the text you are about to add here applies to many or all bootstrap services,
-consider adding it to the bootstrap template instead.
--->
-<!--- EndBlock(custom) -->
+## Prerequisites
 
-The following sections of CONTRIBUTING.md were generated with
-[bootstrap](https://github.com/getoutreach/bootstrap) and are common to all
-bootstrap services.
+<!-- <<Stencil::Block(customPrerequisites)>> -->
 
-## Dependencies
-
-Make sure you've followed the [Launch Plan](https://outreach-io.atlassian.net/wiki/spaces/EN/pages/695698940/Launch+Plan).
-[Set up bootstrap](https://outreach-io.atlassian.net/wiki/spaces/EN/pages/701596137/Services+Checklist) if you're planning on updating bootstrap files.
-
-<!--- Block(devDependencies) -->
-<!--- EndBlock(devDependencies) -->
+<!-- <</Stencil::Block>> -->
 
 ## Building and Testing
 
-<!--- Block(buildCustom) -->
-<!--- EndBlock(buildCustom) -->
+This project uses devbase, which exposes the following build tooling: [devbase/docs/makefile.md](https://github.com/getoutreach/devbase/blob/main/docs/makefile.md)
 
-### Building (Locally)
+<!-- <<Stencil::Block(customBuildingAndTesting)>> -->
 
-To produce binaries in the `./bin/` folder, run `make build`.
+<!-- <</Stencil::Block>> -->
+### Building and Running
 
-### Unit Testing
+If you want to add this to your developer environment, please check out the section in the
+README.md about [adding to this developer environment](https://github.com/getoutreach/vcluster-fs-syncer#add-to-your-development-environment).
 
-You can run the tests with:
+If you want to run this locally, you can do the following:
+
+```bash
+devenv provision
+devenv tunnel
+```
+
+and in a separate terminal, since `devenv tunnel` is a blocking operation, run the following
+in the root of this repository:
+
+```bash
+make devserver
+```
+
+This will build and run your project locally, using the developer environment to provide any
+integrations and dependent services that are tunneled to your local network.
+
+### Generating Deployment Manifests Locally
+
+If you want to observe the deployment manifests generated when running the service in the developer
+environment, you can leverage the following script:
+
+```bash
+./scripts/shell-wrapper.sh deploy-to-dev.sh show
+```
+
+### Replacing a Remote Version of the a Package with Local Version
+
+_This is only applicable if this repository exposes a public package_.
+
+If you want to test a package exposed in this repository in a project that uses it, you can
+add the following `replace` directive to that project's `go.mod` file:
+
+```
+replace github.com/getoutreach/vcluster-fs-syncer => /path/to/local/version/vcluster-fs-syncer
+```
+
+**_Note_**: This repository may have postfixed it's module path with a version, go check the first
+line of the `go.mod` file in this repository to see if that is the case. If that is the case,
+you will need to modify the first part of the replace directive (the part before the `=>`) with
+that postfixed path.
+
+### Linting and Unit Testing
+
+You can run the linters and unit tests with:
 
 ```bash
 make test
 ```
-### Integration Testing
+### End-to-end Testing
 
-Integration tests are tests that require resources such as Kafka or S3.  Please see [Go Testing](https://outreach-io.atlassian.net/wiki/spaces/EN/pages/989693594/Go+Testing) for more details on how to write integration tests.
-
-You can run integration tests with:
-
-```bash
-make integration
-```
-
-### E2E Testing
-
-E2E tests are tests that require other services, such as `giraffe` or `authz`.  This works with the [Kubernetes dev-environment](https://github.com/getoutreach/dev-environment#getting-started).  If one has not been setup already, this will provision one (which can take a while).
-
-Please see [Go Testing](https://outreach-io.atlassian.net/wiki/spaces/EN/pages/989693594/Go+Testing) for more details on how to write e2e tests.
-
-You can run E2E tests with:
+You can run end-to-end tests with:
 
 ```bash
 make e2e
 ```
 
-## Deploying into the Kubernetes Developer Environment
-
-Create a developer environment using the [Kubernetes dev-environment](https://github.com/getoutreach/dev-environment#getting-started).
-
-Make sure that the service is running locally (run `make devserver`), then swap the provisioned app container with the locally running app inside the cluster:
-
-```bash
-devenv local-app vcluster-fs-syncer
-```
-
-If you need to update/query the manifests in the dev Kubernetes cluster:
-
-### Create Manifests
-
-```bash
-./scripts/deploy-to-dev.sh update
-```
-
-### Cleanup Resources
-
-```bash
-./scripts/deploy-to-dev.sh delete
-```
-
-### Show Manifests
-
-```bash
-./scripts/deploy-to-dev.sh show
-```
-
-
-## Releasing
-
-Making releases for this repository follows the process in the [Bootstrap](https://github.com/getoutreach/bootstrap/tree/master/README.md#semver) documentation.
+This leverages the developer environment to interact with dependent integrations and services. If
+an already provisioned environment exists it will use that, else it will create one.

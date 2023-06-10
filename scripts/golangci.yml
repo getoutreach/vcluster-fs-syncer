@@ -1,3 +1,8 @@
+# yaml-language-server: $schema=https://json.schemastore.org/golangci-lint
+lintroller:
+  tier: "platinum"
+
+# Linter settings
 linters-settings:
   errcheck:
     check-blank: true
@@ -16,8 +21,6 @@ linters-settings:
     min-occurrences: 3
   depguard:
     list-type: blacklist
-    #    packages-with-error-messages:
-    #      errors: "Please use github.com/pkg/errors instead"
   misspell:
     locale: US
   lll:
@@ -30,39 +33,24 @@ linters-settings:
       - performance
       - style
     disabled-checks:
-      - whyNoLint
+      - whyNoLint # Doesn't seem to work properly
+      # Suggests bad simplifications (After is not identical to !Before).
+      # TODO(jkinkead): Remove when we have a version of go-critic with
+      # https://github.com/go-critic/go-critic/pull/1281 merged.
+      - timeCmpSimplify
   funlen:
-    lines: 50
+    lines: 500
     statements: 50
 
 linters:
   # Inverted configuration with enable-all and disable is not scalable during updates of golangci-lint.
   disable-all: true
-  # - asciicheck       # Checks that your code does not contain non-ASCII identifiers.
-  # - dupl
-  # - gocognit         # Computes and checks the cognitive complexity of functions.
-  # - gochecknoglobals # Checks that no globals are present in Go code.
-  # - godox            # Tool for detection of FIXME, TODO and other comment keywords.
-  # - gofumpt          # Gofumpt checks whether code was gofumpt-ed.
-  # - goheader         # Checks if file header matches to pattern.
-  # - gomodguard       # Allow and block list linter for direct Go module dependencies.
-  # - goprintffuncname # Checks that printf-like functions are named with `f` at the end.
-  # - interfacer       # Linter that suggests narrower interface types.
-  # - lll              # Reports long lines.
-  # - maligned         # Tool to detect Go structs that would take less memory if their fields were sorted.
-  # - noctx            # Finds sending http request without context.Context.
-  # - prealloc         # Finds slice declarations that could potentially be preallocated.
-  # - rowserrcheck     # Checks whether Err of rows is checked successfully.
-  # - sqlclosecheck    # Checks that sql.Rows and sql.Stmt are closed.
-  # - stylecheck       # Stylecheck is a replacement for golint.
-  # - testpackage      # Linter that makes you use a separate _test package.
-  # - wsl              # Whitespace Linter - Forces you to use empty lines.
   enable:
     - bodyclose
-    - deadcode
     - depguard
     - dogsled
     - errcheck
+    - errorlint
     - exhaustive # Checks exhaustiveness of enum switch statements.
     - exportloopref # Checks for pointers to enclosing loop variables.
     - funlen
@@ -77,24 +65,20 @@ linters:
     - gosimple
     - govet
     - ineffassign
+    - lll
     # - misspell        # The reason we're disabling this right now is because it uses 1/2 of the memory of the run.
     - nakedret
     - staticcheck
-    - structcheck
     - typecheck
     - unconvert
     - unparam
     - unused
-    - varcheck
     - whitespace
 
 issues:
-  # List of regexps of issue texts to exclude, empty list by default.
-  # But independently from this option we use default exclude patterns,
-  # it can be disabled by `exclude-use-default: false`. To list all
-  # excluded by default patterns execute `golangci-lint run --help`
   exclude:
-    - abcdef
+    # We allow error shadowing
+    - 'declaration of "err" shadows declaration at'
 
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
@@ -107,13 +91,18 @@ issues:
         - gosec
         - funlen
         - gochecknoglobals # Globals in test files are tolerated.
+        - goconst # Repeated consts in test files are tolerated.
     # This rule is buggy and breaks on our `///Block` lines.  Disable for now.
     - linters:
         - gocritic
       text: "commentFormatting: put a space"
+    # This rule incorrectly flags nil references after assert.Assert(t, x != nil)
+    - path: _test\.go
+      text: "SA5011"
+      linters:
+        - staticcheck
 
-# golangci.com configuration
-# https://github.com/golangci/golangci/wiki/Configuration
-service:
-  prepare:
-    - echo "here I can run custom commands, but no preparation needed for this repo"
+output:
+  format: colored-line-number
+  sort-results: true
+  print-severity: true
