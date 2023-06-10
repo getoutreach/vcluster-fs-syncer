@@ -5,9 +5,7 @@
 *.so
 *.dylib
 
-# Editors (please update any new editor files in
-# https://github.com/getoutreach/bootstrap/edit/master/pkg/codegen/templates/.gitignore.tpl
-# so every updated project gets it)
+# Editor files
 *.swp
 *~
 \#*\#
@@ -16,6 +14,7 @@ TAGS
 *.sublime-project
 *.sublime-workspace
 .\#*
+.dir-locals.el
 
 # Test binary, build with "go test -c"
 *.test
@@ -55,7 +54,17 @@ Pulumi.*.yaml
 # CircleCI cache version
 /cache-version.txt
 
-###Block(extras)
+# DevSpace files
+/.devspace
+/deployments/vcluster-fs-syncer.yaml
+
+# Documentation output
+/apidocs
+
+### Start ignores inserted by other modules
+### End ignores inserted by other modules
+
+## <<Stencil::Block(extras)>>
 testDir
 tilt_modules
-###EndBlock(extras)
+## <</Stencil::Block>>

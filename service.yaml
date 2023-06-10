@@ -1,3 +1,14 @@
 name: vcluster-fs-syncer
-lintroller: platinum
-oss: true
+arguments:
+  reportingTeam: fnd-dt
+  description: >
+    Synchronizes `/var/lib/kubelet/pods` into predictable vcluster scoped paths 
+    at `/var/lib/loft/<vclusterName>/pods`
+  lintroller: platinum
+  oss: true
+  service: true
+modules:
+  - name: github.com/getoutreach/stencil-base
+  - name: github.com/getoutreach/stencil-golang
+  - name: github.com/getoutreach/devbase
+  - name: github.com/getoutreach/stencil-circleci

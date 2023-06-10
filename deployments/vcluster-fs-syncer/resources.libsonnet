@@ -1,10 +1,13 @@
-// Code managed by Bootstrap - modify only in the blocks
+// Copyright 2023 Outreach Corporation. All Rights Reserved.
+//
+// Description: This file contains resource definitions for each instance (bento, environment, or cluster)
+// that your service runs in.
+//
+// Managed: true
 local ok = import 'kubernetes/outreach.libsonnet';
-local name = 'vcluster-fs-syncer';
-local environment = std.extVar('environment');
-local bento = std.extVar('bento');
-local cluster = std.extVar('cluster');
-local namespace = std.extVar('namespace');
+local app = (import 'kubernetes/app.libsonnet').info('vcluster-fs-syncer');
+
+local accounts = import './mixins/accounts.env.jsonnet';
 
 // Resource override for various enviornments go here.
 //
@@ -13,54 +16,49 @@ local namespace = std.extVar('namespace');
 //
 // bento > cluster > environment
 local resourcesOverride = {
-    local this = self,
+  local this = self,
 
-    // If there is no match for the deployment it will default to
-    // the resources defined here.
-    default: {
-        ///Block(defaultResources)
-        requests: {
-          cpu: '100m',
-          memory: '100Mi'
-        },
-        limits: self.requests
-        ///EndBlock(defaultResources)
+  // If there is no match for the deployment it will default to
+  // the resources defined here.
+  default: {
+    // <<Stencil::Block(defaultResources)>>
+    requests: {
+      cpu: '100m',
+      memory: '100Mi',
     },
+    limits: self.requests,
+    // <</Stencil::Block>>
+  },
 
-    // Environment-level resource overrides go here with the 1st-level keys
-    // of the object being environment names.
-    environment: {
-		local_development: self.development,
-        development: {
-          requests: {
-            cpu: '0',
-            memory: '0'
-          },
-          limits: {}
-        },
-        ///Block(environmentResources)
-        ///EndBlock(environmentResources)
-    },
+  // Environment-level resource overrides go here with the 1st-level keys
+  // of the object being environment names.
+  environment: {
+    // <<Stencil::Block(environmentResources)>>
 
-    // Cluster-level resource overrides go here with the 1st-level keys of
-    // the object being bento names.
-    cluster: {
-    	///Block(clusterResources)
-    	///EndBlock(clusterResources)
-    },
+    // <</Stencil::Block>>
+  },
 
-    // Bento-level resource overrides go here with the 1st-level keys of the
-    // object being bento names.
-    bento: {
-        ///Block(bentoResources)
-        ///EndBlock(bentoResources)
-    }
+  // Cluster-level resource overrides go here with the 1st-level keys of
+  // the object being bento names.
+  cluster: {
+    // <<Stencil::Block(clusterResources)>>
+
+    // <</Stencil::Block>>
+  },
+
+  // Bento-level resource overrides go here with the 1st-level keys of the
+  // object being bento names.
+  bento: {
+    // <<Stencil::Block(bentoResources)>>
+
+    // <</Stencil::Block>>
+  },
 };
 
 // Resource override merging logic.
-local env_resources = if std.objectHas(resourcesOverride.environment, environment) then resourcesOverride.environment[environment] else {};
-local cluster_resources = if std.objectHas(resourcesOverride.cluster, cluster) then resourcesOverride.cluster[cluster] else {};
-local bento_resources = if std.objectHas(resourcesOverride.bento, bento) then resourcesOverride.bento[bento] else {};
+local env_resources = if std.objectHas(resourcesOverride.environment, app.environment) then resourcesOverride.environment[app.environment] else {};
+local cluster_resources = if std.objectHas(resourcesOverride.cluster, app.cluster) then resourcesOverride.cluster[app.cluster] else {};
+local bento_resources = if std.objectHas(resourcesOverride.bento, app.bento) then resourcesOverride.bento[app.bento] else {};
 
 // Computing the final resources object.
 (resourcesOverride.default + env_resources + cluster_resources + bento_resources)

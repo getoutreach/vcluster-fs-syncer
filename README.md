@@ -1,37 +1,38 @@
 # vcluster-fs-syncer
-
-[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://engdocs.outreach.cloud/github.com/getoutreach/vcluster-fs-syncer)
-[![CircleCI](https://circleci.com/gh/getoutreach/vcluster-fs-syncer.svg?style=shield&circle-token=<YOUR_STATUS_API_TOKEN:READ:https://circleci.com/docs/2.0/status-badges/>)](https://circleci.com/gh/getoutreach/vcluster-fs-syncer)
+[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/getoutreach/vcluster-fs-syncer)
 [![Generated via Bootstrap](https://img.shields.io/badge/Outreach-Bootstrap-%235951ff)](https://github.com/getoutreach/bootstrap)
+[![Coverage Status](https://coveralls.io/repos/github/getoutreach/vcluster-fs-syncer/badge.svg?branch=main)](https://coveralls.io/github//getoutreach/vcluster-fs-syncer?branch=main)
+<!-- <<Stencil::Block(extraBadges)>> -->
 
-<!--- Block(description) -->
-Synchronizes `/var/lib/kubelet/pods` into predictable vcluster scoped paths at `/var/lib/loft/<vclusterName>/pods`
-<!--- EndBlock(description) -->
+<!-- <</Stencil::Block>> -->
 
-----
+Synchronizes `/var/lib/kubelet/pods` into predictable vcluster scoped paths  at `/var/lib/loft/<vclusterName>/pods`
 
-[Developing and contributing changes](CONTRIBUTING.md) |
-[Generated Documentation](https://pkg.go.dev/github.com/getoutreach/vcluster-fs-syncer)
 
-<!--- Block(custom) -->
-Currently deploying this is a little hacky, but you can do this by running `./scripts/shell-wrapper.sh deploy-to-dev.sh show | kubectl create -f -`
-<!--- EndBlock(custom) -->
+## Contributing
 
-## Dependencies and Setup
+Please read the [CONTRIBUTING.md](CONTRIBUTING.md) document for guidelines on developing and contributing changes.
+
+## High-level Overview
+
+<!-- <<Stencil::Block(overview)>> -->
+
+<!-- <</Stencil::Block>> -->
+## Dependencies
 
 ### Dependencies
 
-Make sure you've followed the [Launch Plan](https://outreach-io.atlassian.net/wiki/spaces/EN/pages/695698940/Launch+Plan).
+### Adding and Deleting Service in Development Environment
 
-<!--- Block(dependencies) -->
-<!--- EndBlock(dependencies) -->
-### Add to your Development Environment
+First, make sure you [set up your development environment](https://github.com/getoutreach/devenv#getting-started).
 
-[Set up your development environment](https://github.com/getoutreach/dev-environment#getting-started), then run:
-
+To add this service to your developer environment:
 ```bash
-devenv deploy-app vcluster-fs-syncer
+devenv apps deploy vcluster-fs-syncer
 ```
 
-<!--- Block(devenvSetup) -->
-<!--- EndBlock(devenvSetup) -->
+To delete this service from your developer environment:
+```bash
+devenv apps delete vcluster-fs-syncer
+```
+## Interacting with Vcluster-Fs-Syncer

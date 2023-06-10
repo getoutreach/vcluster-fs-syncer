@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/getoutreach/devenv/pkg/kube"
+	"github.com/getoutreach/vcluster-fs-syncer/internal/kube"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -252,7 +252,7 @@ func (s *Syncer) Start(ctx context.Context) error { //nolint:funlen
 		}
 	}
 
-	s.startInformer(ctx) //nolint:errcheck // Why: uneeded
+	s.startInformer(ctx) //nolint:errcheck // Why: unneeded
 
 	<-ctx.Done()
 

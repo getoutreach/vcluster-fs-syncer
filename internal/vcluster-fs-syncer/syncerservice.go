@@ -7,15 +7,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// SyncerService implements the ServiceActivity framework for
+// the vcluster-fs-syncer service. This service activity is the
+// wrapper for all logic that is required to run the service.
 type SyncerService struct {
 	syncer *syncer.Syncer
 }
 
-func (s *SyncerService) Run(ctx context.Context, conf *Config) error {
-	s.syncer = syncer.NewSyncer(conf.FromPath, conf.ToPath, logrus.New())
+// NewSyncerService create a new SyncerService that implements
+// the core of this service's logic.
+func NewSyncerService(cfg *Config) *SyncerService {
+	return &SyncerService{syncer.NewSyncer(cfg.FromPath, cfg.ToPath, logrus.New())}
+}
+
+// Run starts the SyncerService.
+func (s *SyncerService) Run(ctx context.Context) error {
 	return s.syncer.Start(ctx)
 }
 
+// Close shuts down the SyncerService.
 func (s *SyncerService) Close(_ context.Context) error {
 	return s.syncer.Close()
 }
