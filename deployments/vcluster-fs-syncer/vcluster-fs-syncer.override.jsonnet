@@ -28,12 +28,16 @@ local objects = {
       strategy: null,
       template+: {
         spec+: {
+          // We don't need a priority class for this pod and we
+          // don't have the required one in normal clusters.
+          priorityClassName: null,
           serviceAccountName: $.svc_account.metadata.name,
           containers_+:: {
             default+: {
               securityContext: {
                 // Required for Bidirectional mount propagation
                 privileged: true,
+                runAsUser: 0,
                 capabilities: {
                   add: ['SYS_ADMIN'],
                 },
