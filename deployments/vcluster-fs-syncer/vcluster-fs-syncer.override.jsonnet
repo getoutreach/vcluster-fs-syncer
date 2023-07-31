@@ -28,10 +28,15 @@ local objects = {
       strategy: null,
       template+: {
         spec+: {
-          // We don't need a priority class for this pod and we
-          // don't have the required one in normal clusters.
-          priorityClassName: null,
+          // Required for a node to always have this pod running.
+          priorityClassName: 'system-node-critical',
           serviceAccountName: $.svc_account.metadata.name,
+          tolerations: [{
+            key: 'stable',
+            operator: 'Equal',
+            value: 'true',
+            effect: 'NoSchedule',
+          }],
           containers_+:: {
             default+: {
               securityContext: {
@@ -66,6 +71,7 @@ local objects = {
       },
     },
   },
+  pdb: null,
   svc_account: ok.ServiceAccount(app.name + '-syncer', app.namespace) {},
   role: ok.ClusterRole(app.name + '-syncer', app.namespace) {
     rules: [
@@ -87,6 +93,25 @@ local objects = {
   rolebinding: ok.ClusterRoleBinding(app.name + '-syncer', app.namespace) {
     roleRef_:: $.role,
     subjects_:: [$.svc_account],
+  },
+  resourcequota: ok._Object('v1', 'ResourceQuota', 'vcluster-fs-syncer', namespace=app.namespace) {
+    spec: {
+      hard: {
+        pods: '1G',
+      },
+      scopeSelector: {
+        matchExpressions: [
+          {
+            operator: 'In',
+            scopeName: 'PriorityClass',
+            values: [
+              'system-node-critical',
+              'system-cluster-critical',
+            ],
+          },
+        ],
+      },
+    },
   },
   // <</Stencil::Block>>
 };
