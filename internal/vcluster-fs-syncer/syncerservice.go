@@ -2,7 +2,7 @@
 
 // Description: Contains the SyncerService struct and its methods.
 
-package vcluster_fs_syncer //nolint:revive,doculint // Why: We allow [-_].
+package vcluster_fs_syncer //nolint:revive // Why: We allow [-_].
 
 import (
 	"context"

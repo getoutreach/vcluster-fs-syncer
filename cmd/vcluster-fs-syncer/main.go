@@ -19,8 +19,10 @@ import (
 	"github.com/getoutreach/stencil-golang/pkg/serviceactivities/automemlimit"
 	"github.com/getoutreach/stencil-golang/pkg/serviceactivities/gomaxprocs"
 	"github.com/getoutreach/stencil-golang/pkg/serviceactivities/shutdown"
+
 	// Place any extra imports for your startup code here
 	// <<Stencil::Block(imports)>>
+	vcluster_fs_syncer "github.com/getoutreach/vcluster-fs-syncer/internal/vcluster-fs-syncer"
 	// <</Stencil::Block>>
 )
 
