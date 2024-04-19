@@ -24,6 +24,12 @@ vars:
   DEVENV_DEPLOY_VERSION:
     source: env
     default: "latest"
+  # DEVENV_SYNC_BINARIES:
+  # false: Devspace is build machine that synchronizes source code and runs it
+  # true: Devspace synchronizes binaries and run them
+  DEVENV_SYNC_BINARIES:
+    source: env
+    default: "false"
   DEVENV_DEPLOY_IMAGE_SOURCE:
     source: env
     default: local
@@ -44,9 +50,15 @@ vars:
   DEVENV_DEV_SKIP_PORTFORWARDING:
     source: env
     default: "false"
+  DEVENV_DEV_ONLY_FORWARD_DELVE:
+    source: env
+    default: "false"
   DEVENV_DEV_DEPLOYMENT_PROFILE:
     source: env
     default: deployment__vcluster-fs-syncer
+  E2E:
+    source: env
+    default: "false"
 
   # devenv passes in paths to binaries it uses (ensuring the supported versions are used)
   # devenv bin that triggered devspace
@@ -59,10 +71,6 @@ vars:
   DEVENV_DEVSPACE_BIN:
     source: env
     default: devspace
-  # kind bin for loading images into local dev-environment
-  # this var is passed in only when deploying to local dev-environment
-  DEVENV_KIND_BIN:
-    source: env
 
   # This var isn't produced by devenv, but can be produced by user scripts to override the namespace.
   DEVENV_DEPLOY_NAMESPACE:
@@ -74,11 +82,13 @@ vars:
   APP_VERSION: $(make version)
   BOX_REPOSITORY_URL: $(yq -r '.storageURL' "$HOME/.outreach/.config/box/box.yaml")
 
-  DLV_PORT: 42097
+  DLV_PORT:
+    source: env
+    default: 42097
   DEV_CONTAINER_WORKDIR: /home/dev/app
   DEV_CONTAINER_IMAGE: gcr.io/outreach-docker/bootstrap/dev:stable
   DEV_CONTAINER_LOGFILE: /tmp/app.log
-  DEV_CONTAINER_CACHE: /tmp/cache
+  DEV_CONTAINER_CACHE: /home/dev/.cache
 
 # `deployments` tells DevSpace how to deploy this project
 deployments:
@@ -95,6 +105,13 @@ dev:
     labelSelector:
       app: ${DEVENV_DEPLOY_APPNAME}
     namespace: ${DEVENV_DEPLOY_NAMESPACE}
+    resources:
+      requests:
+        cpu: 1
+        memory: 1Gi
+      limits:
+        cpu: 5
+        memory: 10Gi
 
     # Specifies the dev container to use. In this case gcr.io/outreach-docker/bootstrap/dev:stable
     devImage: ${DEV_CONTAINER_IMAGE}
@@ -134,8 +151,6 @@ dev:
         value: Always
       - op: remove
         path: spec.containers[0].securityContext
-      - op: remove
-        path: spec.containers[0].resources
       - op: remove
         path: spec.containers[0].livenessProbe
       - op: remove
@@ -185,49 +200,51 @@ dev:
           name: BOX_REPOSITORY_URL
           value: ${BOX_REPOSITORY_URL}
 
-      # Package caching
+      # Cache for packages, build cache, etc.
       - op: add
         path: spec.volumes
         value:
-          name: pkgcache
+          name: devspace-cache
           persistentVolumeClaim:
-            claimName: pkgcache
+            claimName: devspace-cache
       - op: add
         path: spec.containers[0].volumeMounts
         value:
           mountPath: ${DEV_CONTAINER_CACHE}
-          name: pkgcache
+          name: devspace-cache
 
+      # asdf install volume, mounted into `installs` and `shims` directories.
       - op: add
-        path: spec.containers[0].env
+        path: spec.volumes
         value:
-          name: GOCACHE
-          value: ${DEV_CONTAINER_CACHE}/go/build
+          name: asdf
+          persistentVolumeClaim:
+            claimName: devspace-asdfinstall
       - op: add
-        path: spec.containers[0].env
+        path: spec.containers[0].volumeMounts
         value:
-          name: GOMODCACHE
-          value: ${DEV_CONTAINER_CACHE}/go/mod
-
-      # Lint caching
+          mountPath: /home/dev/.asdf/installs
+          name: asdf
+          subPath: installs
       - op: add
-        path: spec.containers[0].env
+        path: spec.containers[0].volumeMounts
         value:
-          name: GOLANGCI_LINT_CACHE
-          value: ${DEV_CONTAINER_CACHE}/golangci-lint
+          mountPath: /home/dev/.asdf/shims
+          name: asdf
+          subPath: shims
 
       # Storage for sources - this way we don't have to sync everything every time, makes startup faster
       - op: add
         path: spec.volumes
         value:
-          name: appcache
+          name: devspace-appcache
           persistentVolumeClaim:
-            claimName: appcache
+            claimName: devspace-appcache
       - op: add
         path: spec.containers[0].volumeMounts
         value:
           mountPath: ${DEV_CONTAINER_WORKDIR}
-          name: appcache
+          name: devspace-appcache
 
 commands:
   # The image tags get replaced by devspace automatically.
@@ -252,6 +269,7 @@ profiles:
     activation:
       - vars:
           DEVENV_DEV_TERMINAL: "true"
+          DEVENV_SYNC_BINARIES: "false"
     patches:
       - op: add
         path: hooks
@@ -276,6 +294,7 @@ profiles:
     activation:
       - vars:
           DEVENV_DEV_TERMINAL: "false"
+          DEVENV_SYNC_BINARIES: "false"
     patches:
       - op: add
         path: hooks
@@ -304,20 +323,27 @@ profiles:
             labelSelector:
               app: ${DEVENV_DEPLOY_APPNAME}
 
-  - name: skipPortForwarding
-    description: Skip port-forwarding for all but the DLV port.
+  - name: onlyForwardDlv
+    description: Skip port-forwarding for all but the Delve port. This is the default behavior.
     activation:
       - vars:
-          DEVENV_DEV_SKIP_PORTFORWARDING: "true"
+          DEVENV_DEV_ONLY_FORWARD_DELVE: "true"
     patches:
       - op: replace
         path: dev.app.ports
         value:
           - port: ${DLV_PORT}
 
-  - name: e2e
+  - name: skipPortForwarding
+    description: Skip port-forwarding for all but the DLV port.
     activation:
-      - env:
+      - vars:
+          DEVENV_DEV_SKIP_PORTFORWARDING: "true"
+
+  - name: e2eBase
+    description: Basic configuration override for all e2e test profiles
+    activation:
+      - vars:
           E2E: "true"
     patches:
       - op: add
@@ -326,6 +352,14 @@ profiles:
           op: replace
           path: spec.serviceAccountName
           value: "vcluster-fs-syncer-e2e-client-svc"
+
+  - name: e2e
+    activation:
+      - vars:
+          E2E: "true"
+          DEVENV_DEV_TERMINAL: "false"
+          DEVENV_SYNC_BINARIES: "false"
+    patches:
       # For E2E we want to sync files once and stop.
       - op: add
         path: dev.app.sync[*].noWatch
@@ -338,6 +372,130 @@ profiles:
           value:
             name: E2E
             value: "true"
+
+  - name: e2eWithTerminal
+    activation:
+      - vars:
+          E2E: "true"
+          DEVENV_DEV_TERMINAL: "true"
+          DEVENV_SYNC_BINARIES: "false"
+    patches:
+      - op: add
+        path: dev.app.patches
+        value:
+          op: add
+          path: spec.containers[0].env
+          value:
+            name: E2E
+            value: "true"
+
+  - name: binarySyncE2e
+    description: Additional configuration for binary sync when running e2e tests (devenv apps e2e -b)
+    activation:
+      - vars:
+          E2E: "true"
+          DEVENV_DEV_TERMINAL: "false"
+          DEVENV_SYNC_BINARIES: "true"
+    patches:
+      - op: add
+        path: dev.app.patches
+        value:
+          op: add
+          path: spec.containers[0].env
+          value:
+            name: E2E
+            value: "true"
+      - op: add
+        path: hooks
+        value:
+          name: copy-test-results
+          events: ["devCommand:after:execute"]
+          container:
+            imageSelector: ${DEV_CONTAINER_IMAGE}
+          download:
+            containerPath: ${DEV_CONTAINER_WORKDIR}/unit-tests.xml
+            localPath: ./bin/unit-tests.xml
+
+  - name: binarySyncDev
+    description: Synchronizes just content of bin folder and don't do any build related stuff in the devspace pod (devenv apps run -b)
+    activation:
+      - vars:
+          DEVENV_SYNC_BINARIES: "true"
+    patches:
+      - op: replace
+        path: vars.DEV_CONTAINER_IMAGE
+        value: gcr.io/outreach-docker/bootstrap/dev-slim:stable
+      - op: replace
+        path: dev.app.sync[0]
+        value:
+          path: ./bin:${DEV_CONTAINER_WORKDIR}
+          printLogs: true
+          disableDownload: true
+          waitInitialSync: true
+      - op: add
+        path: hooks
+        value:
+          name: reset-dev
+          events: ["devCommand:after:execute"]
+          command: |-
+            "${DEVENV_DEVSPACE_BIN}" reset pods -s
+    merge:
+      dev:
+        app:
+          # https://www.devspace.sh/docs/configuration/dev/#dev-terminal
+          terminal:
+            enabled: true
+            disableReplace: true
+            workDir: ${DEV_CONTAINER_WORKDIR}
+            command: |-
+              entrypoint
+
+  - name: Loft
+    description: >
+      Enables deploying to Loft.
+      Automatically activated based on $DEVENV_TYPE var.
+    activation:
+      - vars:
+          DEVENV_TYPE: loft
+    patches:
+      - op: add
+        path: dev.app.patches
+        value:
+          op: add
+          path: spec.containers[0].nodeSelector
+          value:
+            cloud.google.com/gke-nodepool: devspace
+      - op: add
+        path: dev.app.patches
+        value:
+          op: add
+          path: spec.tolerations
+          value:
+            - key: "devspace"
+              operator: "Equal"
+              value: "true"
+              effect: "NoSchedule"
+      - op: add
+        path: dev.app.patches
+        value:
+          op: add
+          path: spec.securityContext
+          value:
+            runAsUser: 1000
+            fsGroup: 1000
+            runAsGroup: 1000
+      - op: add
+        path: dev.app.patches
+        value:
+          op: replace
+          path: spec.containers[0].resources
+          value:
+            limits:
+              cpu: 4
+              memory: 12Gi
+            requests:
+              cpu: 3 # 4 cores on the VM right now, so we can't request more than that
+              memory: 12Gi
 
   # App Profiles
   # Profiles starting with deployment__ are treated specially by devenv.

@@ -1,4 +1,4 @@
-// Copyright 2023 Outreach Corporation. All Rights Reserved.
+// Copyright 2024 Outreach Corporation. All Rights Reserved.
 //
 // Managed: true
 
@@ -26,6 +26,11 @@ local all = {
       labels+: sharedLabels,
     },
   },
+  svc_acct+: ok.ServiceAccount('%s-svc' % app.name, app.namespace) {
+    metadata+: {
+      labels+: sharedLabels,
+    },
+  },
   service: ok.Service(app.name, app.namespace) {
     target_pod:: $.deployment.spec.template,
     metadata+: {
@@ -48,7 +53,7 @@ local all = {
     metadata+: {
       labels: sharedLabels,
     },
-    spec+: { maxUnavailable: 1 },
+    spec+: { maxUnavailable: '10%' },
   },
   // Default configuration for the service, managed by stencil.
   // all other configuration should be done in the
@@ -72,7 +77,7 @@ local all = {
     data_:: {
       OpenTelemetry: {
         Enabled: true,
-        CollectorEndpoint: 'otel-collector-tracing.monitoring.svc.cluster.local:4317',
+        CollectorEndpoint: 'otel-collector-singleton.monitoring.svc.cluster.local:4317',
         Endpoint: 'api.honeycomb.io',
         APIKey: {
           Path: '/run/secrets/outreach.io/honeycomb/apiKey',
@@ -97,6 +102,7 @@ local all = {
         Path: '/run/secrets/outreach.io/launchdarkly/sdk-key',
       },
       flagsToAdd: {
+        appName: app.name,
         bento: app.bento,
         channel: if isDev then 'dev' else app.channel,
       } + if isDev then {
@@ -108,7 +114,6 @@ local all = {
       'fflags.yaml': std.manifestYamlDoc(this.data_),
     },
   },
-
   deployment: ok.Deployment(app.name, app.namespace) {
     local deployment_volume_mounts = {
       // default configuration files
@@ -136,6 +141,7 @@ local all = {
           labels+: sharedLabels {
           },
           annotations+: {
+            configmap_hash: $.configmap.md5,
             'iam.amazonaws.com/role': '%s_service_role' % app.name,
             datadog_prom_instances_:: [
               {
@@ -154,6 +160,7 @@ local all = {
           },
         },
         spec+: {
+          serviceAccountName: $.svc_acct.metadata.name,
           priorityClassName: 'high-priority',
           containers_:: {
             default: ok.Container(app.name) {
@@ -205,9 +212,9 @@ local all = {
   },
 };
 
-// vaultOperatorSecrets stores vault secrets for production environments
-// this is not related to the development vault secrets operator
-local vaultOperatorSecrets = {
+// nonDevelopmentObjects defines objects for staging/production environments.
+// Note: The vault secrets here are not related to the development vault secrets operator.
+local nonDevelopmentObjects = {
 };
 
 // These secrets will be included in dev by default, they are fetched from vault.
@@ -235,7 +242,7 @@ ok.FilteredList() {
   // Note: configuration overrides the <appName>.override.jsonnet file,
   // which then overrides the objects found in this file.
   // This is done via a simple key merge, and jsonnet object '+:' notation.
-  items_+:: all + (if isDev then developmentObjects else if app.clusterType == 'legacy' then {} else vaultOperatorSecrets)
+  items_+:: all + (if isDev then developmentObjects else if app.clusterType == 'legacy' then {} else nonDevelopmentObjects)
             + mergedMixins
             + override
             + configuration,
