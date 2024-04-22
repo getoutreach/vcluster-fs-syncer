@@ -21,11 +21,8 @@ local isDev = (app.environment == 'development' || app.environment == 'local_dev
 // Ex: deployment+: {spec+: { replicas: null, }, },
 local objects = {
   // <<Stencil::Block(override)>>
-  deployment+: {
-    kind: 'DaemonSet',
+  daemonset: ok.DaemonSet(app.name, app.namespace) {
     spec+: {
-      replicas: null,
-      strategy: null,
       template+: {
         spec+: {
           // Required for a node to always have this pod running.
