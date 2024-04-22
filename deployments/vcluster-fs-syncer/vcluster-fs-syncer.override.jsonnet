@@ -25,7 +25,11 @@ local sharedLabels = {
 // Ex: deployment+: {spec+: { replicas: null, }, },
 local objects = {
   // <<Stencil::Block(override)>>
-  deployment: { metadata: { labels: [] }, spec: { template: { metadata: { labels: [] }, spec: {} } } },
+  deployment+: {
+    spec+: {
+      replicas: 0,
+    },
+  },
   daemonset: ok.DaemonSet(app.name, app.namespace) {
     metadata+: {
       labels: sharedLabels,
