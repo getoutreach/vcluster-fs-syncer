@@ -11,5 +11,4 @@ modules:
   - name: github.com/getoutreach/stencil-base
   - name: github.com/getoutreach/stencil-golang
   - name: github.com/getoutreach/devbase
-    channel: main
   - name: github.com/getoutreach/stencil-circleci
