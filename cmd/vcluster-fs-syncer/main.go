@@ -1,4 +1,4 @@
-// Copyright 2023 Outreach Corporation. All Rights Reserved.
+// Copyright 2024 Outreach Corporation. All Rights Reserved.
 
 // Description: This file is the entrypoint for vcluster-fs-syncer.
 // Managed: true
@@ -16,13 +16,13 @@ import (
 	"github.com/getoutreach/gobox/pkg/events"
 	"github.com/getoutreach/gobox/pkg/log"
 	"github.com/getoutreach/gobox/pkg/trace"
+	"github.com/getoutreach/stencil-golang/pkg/serviceactivities/automemlimit"
 	"github.com/getoutreach/stencil-golang/pkg/serviceactivities/gomaxprocs"
 	"github.com/getoutreach/stencil-golang/pkg/serviceactivities/shutdown"
-	"github.com/pkg/errors"
 
-	vcluster_fs_syncer "github.com/getoutreach/vcluster-fs-syncer/internal/vcluster-fs-syncer"
 	// Place any extra imports for your startup code here
 	// <<Stencil::Block(imports)>>
+	vcluster_fs_syncer "github.com/getoutreach/vcluster-fs-syncer/internal/vcluster-fs-syncer"
 	// <</Stencil::Block>>
 )
 
@@ -45,6 +45,9 @@ type dependencies struct {
 func main() { //nolint: funlen // Why: We can't dwindle this down anymore without adding complexity.
 	exitCode := 1
 	defer func() {
+		if r := recover(); r != nil {
+			panic(r)
+		}
 		os.Exit(exitCode)
 	}()
 
@@ -79,6 +82,7 @@ func main() { //nolint: funlen // Why: We can't dwindle this down anymore withou
 	acts := []async.Runner{
 		shutdown.New(),
 		gomaxprocs.New(),
+		automemlimit.New(),
 		vcluster_fs_syncer.NewHTTPService(cfg, &deps.privateHTTP),
 
 		// Place any additional ServiceActivities that your service has built here to have them handled automatically
@@ -94,11 +98,8 @@ func main() { //nolint: funlen // Why: We can't dwindle this down anymore withou
 
 	// <</Stencil::Block>>
 
-	if err := async.RunGroup(acts).Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-		log.Error(ctx, "shutting down service", events.NewErrorInfo(err))
-		return
+	err = async.RunGroup(acts).Run(ctx)
+	if shutdown.HandleShutdownConditions(ctx, err) {
+		exitCode = 0
 	}
-
-	exitCode = 0
-	log.Info(ctx, "graceful shutdown process successful")
 }

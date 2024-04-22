@@ -1,4 +1,4 @@
-// Copyright 2023 Outreach Corporation. All Rights Reserved.
+// Copyright 2024 Outreach Corporation. All Rights Reserved.
 //
 // Description: This file contains resource definitions for each instance (bento, environment, or cluster)
 // that your service runs in.
@@ -6,8 +6,6 @@
 // Managed: true
 local ok = import 'kubernetes/outreach.libsonnet';
 local app = (import 'kubernetes/app.libsonnet').info('vcluster-fs-syncer');
-
-local accounts = import './mixins/accounts.env.jsonnet';
 
 // Resource override for various enviornments go here.
 //

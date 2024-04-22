@@ -1,4 +1,4 @@
-// Copyright 2023 Outreach Corporation. All Rights Reserved.
+// Copyright 2024 Outreach Corporation. All Rights Reserved.
 //
 // Description: This file is automatically merged into the 'vcluster-fs-syncer.jsonnet' file.
 // Configuration should go into the 'vcluster-fs-syncer.config.jsonnet' file, or in the relevant
@@ -12,7 +12,11 @@ local isDev = (app.environment == 'development' || app.environment == 'local_dev
 
 // Put custom global variables here
 // <<Stencil::Block(globalVars)>>
-
+local sharedLabels = {
+  repo: app.name,
+  bento: app.bento,
+  reporting_team: 'fnd-dt',
+};
 // <</Stencil::Block>>
 
 // Objects contains kubernetes objects (or resources) that should be created in
@@ -22,10 +26,15 @@ local isDev = (app.environment == 'development' || app.environment == 'local_dev
 local objects = {
   // <<Stencil::Block(override)>>
   deployment+: {
-    kind: 'DaemonSet',
     spec+: {
-      replicas: null,
-      strategy: null,
+      replicas: 0,
+    },
+  },
+  daemonset: ok.DaemonSet(app.name, app.namespace) {
+    metadata+: {
+      labels: sharedLabels,
+    },
+    spec+: {
       template+: {
         spec+: {
           // Required for a node to always have this pod running.

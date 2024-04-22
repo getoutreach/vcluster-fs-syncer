@@ -4,10 +4,15 @@ local app = (import 'kubernetes/app.libsonnet').info('vcluster-fs-syncer');
 local isDev = app.environment == 'development' || app.environment == 'local_development';
 
 local dev_objects = {
-  pkgcache: ok.PersistentVolumeClaim('pkgcache', app.namespace) {
+  pkgcache: ok.PersistentVolumeClaim('devspace-cache', app.namespace) {
     storage: '10Gi',
   },
-  appcache: ok.PersistentVolumeClaim('appcache', app.namespace) {
+  // This volume contains an asdf installation, although only the `install` and
+  // `shims` directories.
+  asdfinstall: ok.PersistentVolumeClaim('devspace-asdfinstall', app.namespace) {
+    storage: '10Gi',
+  },
+  appcache: ok.PersistentVolumeClaim('devspace-appcache', app.namespace) {
     storage: '2Gi',
   },
 };

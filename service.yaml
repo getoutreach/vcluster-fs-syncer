@@ -2,7 +2,7 @@ name: vcluster-fs-syncer
 arguments:
   reportingTeam: fnd-dt
   description: >
-    Synchronizes `/var/lib/kubelet/pods` into predictable vcluster scoped paths 
+    Synchronizes `/var/lib/kubelet/pods` into predictable vcluster scoped paths
     at `/var/lib/loft/<vclusterName>/pods`
   lintroller: platinum
   oss: true
