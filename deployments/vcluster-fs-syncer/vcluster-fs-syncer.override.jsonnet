@@ -12,7 +12,11 @@ local isDev = (app.environment == 'development' || app.environment == 'local_dev
 
 // Put custom global variables here
 // <<Stencil::Block(globalVars)>>
-
+local sharedLabels = {
+  repo: app.name,
+  bento: app.bento,
+  reporting_team: 'fnd-dt',
+};
 // <</Stencil::Block>>
 
 // Objects contains kubernetes objects (or resources) that should be created in
@@ -21,7 +25,11 @@ local isDev = (app.environment == 'development' || app.environment == 'local_dev
 // Ex: deployment+: {spec+: { replicas: null, }, },
 local objects = {
   // <<Stencil::Block(override)>>
+  deployment: { metadata: { labels: [] }, spec: { template: { metadata: { labels: [] }, spec: {} } } },
   daemonset: ok.DaemonSet(app.name, app.namespace) {
+    metadata+: {
+      labels: sharedLabels,
+    },
     spec+: {
       template+: {
         spec+: {
