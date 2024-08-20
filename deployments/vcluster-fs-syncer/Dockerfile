@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.0-experimental
-FROM gcr.io/outreach-docker/golang:1.22.0 as builder
+FROM gcr.io/outreach-docker/golang:1.22.6 as builder
 ARG VERSION
 ENV GOCACHE "/go-build-cache"
 ENV GOPRIVATE github.com/getoutreach/*
