@@ -1,6 +1,8 @@
 module github.com/getoutreach/vcluster-fs-syncer
 
-go 1.21
+go 1.22
+
+toolchain go1.22.6
 
 require (
 	github.com/getoutreach/gobox v1.90.2
