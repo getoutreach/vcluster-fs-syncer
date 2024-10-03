@@ -29,7 +29,6 @@ info:
     pagerduty:
       id: P9HJAUT
       type: SERVICE
-  x-cortex-dashboards:
   x-cortex-link:
     ## These are useful documentation links for this service. Please fill in the customLinks block if you have additional documentation links.
     ## name: The name of the link
@@ -51,7 +50,7 @@ info:
     tier: tier_2
     framework: stencil
     language: Golang
-    stencil_version: v1.39.1
+    stencil_version: v1.40.0-rc.1
     golang_version: 1.22.6
     cli: false
     service: true
