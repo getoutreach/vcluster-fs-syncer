@@ -1,4 +1,4 @@
-// Copyright 2024 Outreach Corporation. All Rights Reserved.
+// Copyright 2025 Outreach Corporation. All Rights Reserved.
 //
 // Description: This file is automatically merged into the 'vcluster-fs-syncer.jsonnet' file.
 // Configuration should go into the 'vcluster-fs-syncer.config.jsonnet' file, or in the relevant

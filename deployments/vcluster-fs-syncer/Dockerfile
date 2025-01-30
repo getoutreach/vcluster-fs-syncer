@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.0-experimental
-FROM gcr.io/outreach-docker/golang:1.22.6 as builder
+FROM 182192988802.dkr.ecr.us-east-2.amazonaws.com/outreach-docker/golang:1.23.4 as builder
 ARG VERSION
 ENV GOCACHE "/go-build-cache"
 ENV GOPRIVATE github.com/getoutreach/*
@@ -22,7 +22,7 @@ RUN --mount=type=ssh --mount=type=cache,target=/go/pkg --mount=type=cache,target
   mkdir -p bin; \
   go build -o /src/bin/ -ldflags "-X github.com/getoutreach/gobox/pkg/app.Version=$VERSION" -v ./cmd/...
 
-FROM gcr.io/outreach-docker/alpine:3.18
+FROM 182192988802.dkr.ecr.us-east-2.amazonaws.com/outreach-docker/alpine:3.18
 ENTRYPOINT ["/usr/local/bin/vcluster-fs-syncer"]
 
 LABEL "io.outreach.reporting_team"="fnd-dt"
