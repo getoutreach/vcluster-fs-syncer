@@ -10,6 +10,7 @@ local argo = import 'kubernetes/argo.libsonnet';
 local appImageRegistry = std.extVar('appImageRegistry');
 local devEmail = std.extVar('dev_email');
 local isDev = app.environment == 'development' || app.environment == 'local_development';
+local isLocalDev = app.environment == 'local_development';
 
 local sharedLabels = {
   repo: app.name,
@@ -77,7 +78,7 @@ local all = {
     data_:: {
       OpenTelemetry: {
         Enabled: true,
-        CollectorEndpoint: 'otel-collector-singleton.monitoring.svc.cluster.local:4317',
+        CollectorEndpoint: if isLocalDev then '' else 'otel-collector-singleton.monitoring.svc.cluster.local:4317',
         Endpoint: 'api.honeycomb.io',
         APIKey: {
           Path: '/run/secrets/outreach.io/honeycomb/apiKey',
@@ -139,6 +140,7 @@ local all = {
       template+: {
         metadata+: {
           labels+: sharedLabels {
+            version: app.version,
           },
           annotations+: {
             configmap_hash: $.configmap.md5,
