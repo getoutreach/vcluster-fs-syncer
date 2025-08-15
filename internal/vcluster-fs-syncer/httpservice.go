@@ -1,4 +1,4 @@
-// Copyright 2025 Outreach Corporation. All Rights Reserved.
+// Copyright 2025 Outreach Corporation. Licensed under the Apache License 2.0.
 
 // Description: This file exposes the private HTTP service for vcluster-fs-syncer.
 // Managed: true
